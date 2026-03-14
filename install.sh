@@ -184,6 +184,8 @@ else
         cd "$SCRIPT_DIR"
     else
         fail "Could not clone WhiteSur theme. Check internet connection."
+        echo -e "  ${RED}The WhiteSur theme is required. Install will continue but the desktop may look broken.${RESET}"
+        echo -e "  ${RED}Re-run this script once you have internet access.${RESET}"
     fi
 fi
 
@@ -215,7 +217,7 @@ else
         cd WhiteSur-icon-theme && ./install.sh 2>/dev/null && ok "WhiteSur icons installed." || fail "Icon theme install failed."
         cd "$SCRIPT_DIR"
     else
-        fail "Could not clone WhiteSur icons."
+        fail "Could not clone WhiteSur icons. Check internet connection."
     fi
 fi
 
@@ -363,6 +365,7 @@ mkdir -p "$HOME/.local/share/applications"
 cp "$SCRIPT_DIR/config/soundcloud.desktop" "$HOME/.local/share/applications/"
 
 # Set Brave as default browser
+backup "$HOME/.config/mimeapps.list"
 cp "$SCRIPT_DIR/config/mimeapps.list" "$HOME/.config/"
 
 # GTK-3.0 — append, don't replace
@@ -674,7 +677,9 @@ CUSTOM_APPLETS=(
 
 if [ -n "$CURRENT_APPLETS" ] && [ "$CURRENT_APPLETS" != "@as []" ]; then
     # Remove any existing 47OS applets first (in case of re-install)
-    CLEANED=$(echo "$CURRENT_APPLETS" | sed "s/'[^']*ghost-mode@custom[^']*',\?//g; s/'[^']*brightness@custom[^']*',\?//g; s/'[^']*fake-wifi@custom[^']*',\?//g; s/'[^']*fake-battery@custom[^']*',\?//g; s/'[^']*47sound@custom[^']*',\?//g; s/,\s*\]/]/g; s/,\s*,/,/g")
+    CLEANED=$(echo "$CURRENT_APPLETS" | sed "s/'[^']*ghost-mode@custom[^']*'//g; s/'[^']*brightness@custom[^']*'//g; s/'[^']*fake-wifi@custom[^']*'//g; s/'[^']*fake-battery@custom[^']*'//g; s/'[^']*47sound@custom[^']*'//g")
+    # Clean up malformed commas: leading comma after [, trailing comma before ], double commas
+    CLEANED=$(echo "$CLEANED" | sed 's/,\s*,/,/g; s/\[\s*,/[/g; s/,\s*\]/]/g; s/,\s*,/,/g')
 
     # Strip outer brackets
     INNER=$(echo "$CLEANED" | sed "s/^\[//;s/\]$//;s/^@as \[//")
