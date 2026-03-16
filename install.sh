@@ -175,11 +175,12 @@ else
     rm -rf WhiteSur-gtk-theme
     if git clone --depth 1 https://github.com/vinceliuice/WhiteSur-gtk-theme.git 2>/dev/null; then
         cd WhiteSur-gtk-theme
-        if ./install.sh -c Dark -s standard -l --round 2>/dev/null; then
+        # WhiteSur installer needs a PTY for its spinner animation
+        script -qc "./install.sh -c dark" /dev/null > /dev/null 2>&1
+        if [ -d "$HOME/.themes/WhiteSur-Dark" ]; then
             ok "WhiteSur GTK theme installed."
         else
-            # Try simpler install flags
-            ./install.sh -c Dark 2>/dev/null && ok "WhiteSur GTK theme installed (basic)." || fail "WhiteSur theme install failed."
+            fail "WhiteSur theme install failed. Try running manually: cd /tmp/WhiteSur-gtk-theme && ./install.sh -c dark"
         fi
         cd "$SCRIPT_DIR"
     else
