@@ -501,10 +501,12 @@ sudo sed -i "s/^GRUB_DISTRIBUTOR=.*/GRUB_DISTRIBUTOR=\"47 OS\"/" /etc/default/gr
 sudo update-grub 2>/dev/null
 ok "GRUB configured (instant boot, 47 OS branding)."
 
-# dconf system defaults
-sudo mkdir -p /etc/dconf/db/local.d
+# dconf system defaults + profile (CRITICAL - without the profile, system DB is ignored)
+sudo mkdir -p /etc/dconf/db/local.d /etc/dconf/profile
+echo -e "user-db:user\nsystem-db:local" | sudo tee /etc/dconf/profile/user > /dev/null
 sudo cp "$SCRIPT_DIR/system/dconf/00-47os-defaults" /etc/dconf/db/local.d/ 2>/dev/null
 sudo dconf update 2>/dev/null
+ok "dconf profile + system database configured."
 
 # GSchema override — BACKUP first
 if [ -f /usr/share/glib-2.0/schemas/zz_47os.gschema.override ]; then
@@ -551,59 +553,25 @@ FIRSTLOGIN
 
 cat > "$HOME/.config/47industries/apply-rice.sh" <<'APPLYSCRIPT'
 #!/bin/bash
-# 47OS Rice - First Login Apply Script
-# Uses dconf load with the exact INI from the working 47OS ISO installer.
-# Runs once on first login, then removes itself.
+# 47OS Rice - First Login Script (lightweight)
+# The heavy lifting is done by the system dconf database + gschema override.
+# This script only handles user-specific paths (keybindings with $HOME).
+
+sleep 5  # Wait for Cinnamon to fully load
 
 INSTALL_DIR=$(cat "$HOME/.config/47industries/install-path" 2>/dev/null)
 [ -z "$INSTALL_DIR" ] && INSTALL_DIR="$HOME/47os-rice"
 
-sleep 3  # Wait for Cinnamon to fully load
-
-# ---- LOAD CINNAMON SETTINGS FROM INI (same approach as working ISO) ----
-INI_FILE="$INSTALL_DIR/config/dconf/cinnamon-dconf.ini"
-if [ -f "$INI_FILE" ]; then
-    # Replace HOMEDIR placeholder with actual home
-    sed "s|HOMEDIR|$HOME|g" "$INI_FILE" | dconf load /org/cinnamon/
+# Load user-specific settings (keybindings with $HOME paths, plank, etc.)
+INI="$INSTALL_DIR/config/dconf/user-settings.ini"
+if [ -f "$INI" ]; then
+    sed "s|HOMEDIR|$HOME|g" "$INI" | dconf load /
 fi
 
-# ---- LOAD FULL USER SETTINGS FROM INI ----
-SETTINGS_FILE="$INSTALL_DIR/config/dconf/user-settings.ini"
-if [ -f "$SETTINGS_FILE" ]; then
-    sed "s|HOMEDIR|$HOME|g" "$SETTINGS_FILE" | dconf load /
-fi
-
-# ---- FORCE THEME (belt and suspenders) ----
-gsettings set org.cinnamon.theme name 'WhiteSur-Dark' 2>/dev/null
-gsettings set org.cinnamon.desktop.interface gtk-theme 'WhiteSur-Dark' 2>/dev/null
-gsettings set org.cinnamon.desktop.interface icon-theme 'WhiteSur-dark' 2>/dev/null
-gsettings set org.cinnamon.desktop.interface cursor-theme 'WhiteSur-cursors' 2>/dev/null
-gsettings set org.cinnamon.desktop.interface font-name 'SF Pro Display 10' 2>/dev/null
-gsettings set org.cinnamon.desktop.wm.preferences theme 'WhiteSur-Dark' 2>/dev/null
-gsettings set org.cinnamon app-menu-icon-name '47os-logo' 2>/dev/null
-gsettings set org.cinnamon panels-enabled "['1:0:top']" 2>/dev/null
-gsettings set org.gnome.desktop.interface gtk-theme 'WhiteSur-Dark' 2>/dev/null
-gsettings set org.gnome.desktop.interface icon-theme 'WhiteSur-dark' 2>/dev/null
-gsettings set org.gnome.desktop.interface cursor-theme 'WhiteSur-cursors' 2>/dev/null
-
-# ---- MENU ICON CONFIG ----
-mkdir -p "$HOME/.config/cinnamon/spices/menu@cinnamon.org"
-cat > "$HOME/.config/cinnamon/spices/menu@cinnamon.org/0.json" <<MENUCFG
-{
-    "menu-icon-custom": {"type": "checkbox", "default": true, "value": true},
-    "menu-icon": {"type": "iconfilechooser", "default": "", "value": "$HOME/Documents/47industries/panel-icon.png"},
-    "menu-icon-size": {"type": "spinbutton", "default": 28, "value": 32}
-}
-MENUCFG
-
-# ---- SELF-DESTRUCT ----
+# Self-destruct
 rm -f "$HOME/.config/autostart/47os-first-login.desktop"
 
-# ---- AUTO LOGOUT so Cinnamon loads fresh with new settings ----
-# This is safer than cinnamon --replace which crashes the desktop.
-notify-send "47 Industries" "Settings applied. Logging out in 5 seconds..." -i dialog-information
-sleep 5
-cinnamon-session-quit --logout --force 2>/dev/null || loginctl terminate-user "$USER" 2>/dev/null
+notify-send "47 Industries" "Rice active." -i dialog-information
 APPLYSCRIPT
 
 chmod +x "$HOME/.config/47industries/apply-rice.sh"
