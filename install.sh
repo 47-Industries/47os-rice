@@ -143,7 +143,7 @@ if sudo apt install -y \
     alacritty plank rofi xdotool wmctrl xbindkeys xss-lock \
     brightnessctl pulseaudio-utils \
     inotify-tools devilspie2 macchanger x11-utils \
-    python3 jq curl wget git dconf-cli \
+    python3 jq curl wget git dconf-cli lm-sensors \
     gnome-maps gnome-contacts gnome-clocks gnome-calendar cheese \
     rhythmbox shotwell drawing simple-scan 2>/dev/null; then
     ok "Done."
@@ -203,6 +203,24 @@ if [ -d "$HOME/.themes/WhiteSur-Dark/cinnamon" ]; then
     # Initialize transparency state to off
     echo "off" > /tmp/transparency_state
 fi
+
+# Inject macOS rubberband selection CSS into WhiteSur GTK theme
+RUBBERBAND_CSS='
+/* 47OS: macOS-style rubberband selection */
+.rubberband, rubberband, .view rubberband, treeview.view rubberband,
+flowbox rubberband, iconview rubberband, .content-view rubberband,
+GtkIconView rubberband, .nemo-desktop rubberband {
+  border: 1px solid rgba(180, 180, 180, 0.6) !important;
+  background-color: rgba(160, 160, 160, 0.25) !important;
+}'
+for css_file in "$HOME/.themes/WhiteSur-Dark/gtk-3.0/gtk.css" \
+                "$HOME/.themes/WhiteSur-Dark/gtk-3.0/gtk-dark.css" \
+                "$HOME/.themes/WhiteSur-Dark/gtk-4.0/gtk.css" \
+                "$HOME/.themes/WhiteSur-Dark/gtk-4.0/gtk-Dark.css"; do
+    if [ -f "$css_file" ] && ! grep -q "47OS.*rubberband" "$css_file" 2>/dev/null; then
+        echo "$RUBBERBAND_CSS" >> "$css_file"
+    fi
+done
 
 # ============================================================
 # STEP 3: Install WhiteSur Icon Theme + Cursors
@@ -302,6 +320,9 @@ cp "$SCRIPT_DIR/assets/images/launcher.png" "$HOME/Documents/47industries/" 2>/d
 cp "$SCRIPT_DIR/assets/images/sequoia-sunrise.jpg" "$HOME/Documents/47industries/" 2>/dev/null
 cp "$SCRIPT_DIR/assets/ascii-art.txt" "$HOME/.local/share/47industries/" 2>/dev/null
 cp "$SCRIPT_DIR/config/industries.rasi" "$HOME/Documents/47industries/" 2>/dev/null
+
+# Set 47 logo as user avatar
+cp "$SCRIPT_DIR/assets/images/panel-icon.png" "$HOME/.face" 2>/dev/null
 
 # Ensure ~/.local/bin is in PATH (append only, don't duplicate)
 if ! grep -q '\.local/bin' "$HOME/.bashrc" 2>/dev/null; then

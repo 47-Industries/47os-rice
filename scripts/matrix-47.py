@@ -45,11 +45,14 @@ DYNAMIC_START = 1  # insert after OS line
 DYNAMIC_LABELS = ["Uptime", "Memory", "CPU Temp", "GPU Temp"]
 
 def get_dynamic():
+    cpu_temp = cmd("sensors 2>/dev/null | grep -i 'Package id 0\\|Tctl' | awk '{print $4}'") or "N/A"
+    gpu_temp = cmd("nvidia-smi --query-gpu=temperature.gpu --format=csv,noheader 2>/dev/null")
+    gpu_temp = (gpu_temp + "°C") if gpu_temp else "N/A"
     return [
         "Uptime: " + cmd("uptime -p").replace("up ", ""),
         "Memory: " + cmd("free -h | awk '/Mem:/{print $3 \" / \" $2}'"),
-        "CPU Temp: " + cmd("sensors | grep 'Package id 0' | awk '{print $4}'"),
-        "GPU Temp: " + cmd("nvidia-smi --query-gpu=temperature.gpu --format=csv,noheader") + "°C",
+        "CPU Temp: " + cpu_temp,
+        "GPU Temp: " + gpu_temp,
     ]
 
 def get_info():

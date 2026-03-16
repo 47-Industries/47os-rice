@@ -2939,3 +2939,15 @@ StScrollBar StButton#vhandle:active, StScrollBar StButton#hhandle:active {
 .appmenu-search-box {
   background-color: transparent;
 }
+
+/* 47OS: macOS-style rubberband selection */
+.rubberband,
+rubberband,
+.view rubberband,
+treeview.view rubberband,
+flowbox rubberband,
+iconview rubberband,
+.content-view rubberband {
+  border: 1px solid rgba(180, 180, 180, 0.6) !important;
+  background-color: rgba(160, 160, 160, 0.25) !important;
+}
