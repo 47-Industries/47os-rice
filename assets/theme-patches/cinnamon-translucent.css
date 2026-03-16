@@ -156,13 +156,13 @@ stage {
   transition-duration: 300ms;
   border-radius: 6px;
   color: #dadada;
-  border: 2px solid transparent !important;
+  border: 2px solid transparent;
   background-color: transparent;
 }
 
 #menu-search-entry:focus, .notification StEntry:focus, .menu #notification StEntry:focus, .popup-menu #notification StEntry:focus, #notification StEntry:focus, #menu-search-entry:hover, .notification StEntry:hover, .menu #notification StEntry:hover, .popup-menu #notification StEntry:hover, #notification StEntry:hover {
   color: #dadada;
-  border: 2px solid #0860F2 !important;
+  border: 2px solid #0860F2;
   background-color: transparent;
 }
 
@@ -187,13 +187,13 @@ stage {
   border-radius: 6px;
   color: #d3d7df;
   background-color: rgba(211, 215, 223, 0.1);
-  border: 2px solid transparent !important;
+  border: 2px solid transparent;
 }
 
 .prompt-dialog-password-entry:focus, .run-dialog-entry:focus {
   color: #d3d7df;
   background-color: rgba(211, 215, 223, 0.1);
-  border: 2px solid #0860F2 !important;
+  border: 2px solid #0860F2;
 }
 
 .prompt-dialog-password-entry:insensitive, .run-dialog-entry:insensitive {
@@ -373,7 +373,7 @@ StScrollBar StButton#vhandle:active, StScrollBar StButton#hhandle:active {
 }
 
 .appmenu-background {
-  background-color: #0a0a0a !important;
+  background-color: #0a0a0a;
 }
 
 .menu-arrow,
@@ -681,7 +681,7 @@ StScrollBar StButton#vhandle:active, StScrollBar StButton#hhandle:active {
   -cinnamon-caption-spacing: 4px;
   color: #d3d7df;
   background-color: rgba(211, 215, 223, 0.1);
-  border: 2px solid transparent !important;
+  border: 2px solid transparent;
 }
 
 .expo-workspaces-name-entry:focus,
@@ -2948,6 +2948,6 @@ treeview.view rubberband,
 flowbox rubberband,
 iconview rubberband,
 .content-view rubberband {
-  border: 1px solid rgba(180, 180, 180, 0.6) !important;
-  background-color: rgba(160, 160, 160, 0.25) !important;
+  border: 1px solid rgba(180, 180, 180, 0.6);
+  background-color: rgba(160, 160, 160, 0.25);
 }

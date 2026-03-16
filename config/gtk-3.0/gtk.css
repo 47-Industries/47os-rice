@@ -1,14 +1,11 @@
-/* macOS-style rubberband selection */
-XfdesktopIconView.view .rubberband,
-.content-view rubberband,
-treeview.view rubberband,
-flowbox rubberband,
+/* 47OS: macOS-style rubberband selection */
 rubberband,
 .rubberband,
 .view rubberband,
+treeview.view rubberband,
+flowbox rubberband,
 iconview rubberband,
-GtkIconView rubberband,
-.nemo-desktop rubberband {
-  border: 1px solid rgba(180, 180, 180, 0.6) !important;
-  background-color: rgba(160, 160, 160, 0.25) !important;
+.content-view rubberband {
+  border: 1px solid rgba(180, 180, 180, 0.6);
+  background-color: rgba(160, 160, 160, 0.25);
 }

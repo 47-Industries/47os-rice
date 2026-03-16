@@ -210,8 +210,8 @@ RUBBERBAND_CSS='
 .rubberband, rubberband, .view rubberband, treeview.view rubberband,
 flowbox rubberband, iconview rubberband, .content-view rubberband,
 GtkIconView rubberband, .nemo-desktop rubberband {
-  border: 1px solid rgba(180, 180, 180, 0.6) !important;
-  background-color: rgba(160, 160, 160, 0.25) !important;
+  border: 1px solid rgba(180, 180, 180, 0.6);
+  background-color: rgba(160, 160, 160, 0.25);
 }'
 for css_file in "$HOME/.themes/WhiteSur-Dark/gtk-3.0/gtk.css" \
                 "$HOME/.themes/WhiteSur-Dark/gtk-3.0/gtk-dark.css" \
