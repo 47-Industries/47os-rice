@@ -145,7 +145,7 @@
       }
     ],
     "default_category": "47 OS",
-    "value": "/home/deansabr/Documents/47industries/panel-icon.png"
+    "value": "HOMEDIR/Documents/47industries/panel-icon.png"
   },
   "menu-icon-size": {
     "type": "spinbutton",

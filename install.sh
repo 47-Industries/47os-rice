@@ -368,11 +368,16 @@ cp "$SCRIPT_DIR/config/devilspie2/transparency.lua" "$HOME/.config/devilspie2/"
 mkdir -p "$HOME/.config/fastfetch"
 cp "$SCRIPT_DIR/config/fastfetch/config.jsonc" "$HOME/.config/fastfetch/"
 
-# Cinnamon spices configs (calendar format, wobbly windows tuning)
-mkdir -p "$HOME/.config/cinnamon/spices/calendar@cinnamon.org"
-cp "$SCRIPT_DIR/config/cinnamon/calendar@cinnamon.org/13.json" "$HOME/.config/cinnamon/spices/calendar@cinnamon.org/"
-mkdir -p "$HOME/.config/cinnamon/spices/compiz-windows-effect@hermes83.github.com"
-cp "$SCRIPT_DIR/config/cinnamon/compiz-windows-effect@hermes83.github.com/"*.json "$HOME/.config/cinnamon/spices/compiz-windows-effect@hermes83.github.com/" 2>/dev/null
+# Cinnamon spices configs (menu icon, calendar format, wobbly windows, etc.)
+# Copy ALL spices configs from the working ISO, replacing HOMEDIR with actual home
+for spice_dir in "$SCRIPT_DIR/config/cinnamon/"*/; do
+    spice_name=$(basename "$spice_dir")
+    mkdir -p "$HOME/.config/cinnamon/spices/$spice_name"
+    for json_file in "$spice_dir"*.json; do
+        [ -f "$json_file" ] || continue
+        sed "s|HOMEDIR|$HOME|g" "$json_file" > "$HOME/.config/cinnamon/spices/$spice_name/$(basename "$json_file")"
+    done
+done
 
 # SoundCloud web app
 mkdir -p "$HOME/.local/share/applications"
