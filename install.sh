@@ -192,8 +192,9 @@ if [ -d "$HOME/.themes/WhiteSur-Dark/cinnamon" ]; then
     # Set initial state to opaque (solid)
     cp "$SCRIPT_DIR/assets/theme-patches/cinnamon-opaque.css" "$HOME/.themes/WhiteSur-Dark/cinnamon/cinnamon.css" 2>/dev/null
     cp "$SCRIPT_DIR/assets/theme-patches/menu-opaque.svg" "$HOME/.themes/WhiteSur-Dark/cinnamon/assets/menu.svg" 2>/dev/null
-    # Initialize transparency state to off
-    echo "off" > /tmp/transparency_state
+    # Initialize transparency state to off (persistent path, survives reboot)
+    mkdir -p "$HOME/.config/47industries"
+    echo "off" > "$HOME/.config/47industries/transparency-state"
 fi
 
 # Inject macOS rubberband selection CSS into WhiteSur GTK theme
@@ -424,7 +425,7 @@ fi
 if [ ! -f "$HOME/.config/47industries/transparency-level" ]; then
     echo "50" > "$HOME/.config/47industries/transparency-level"
 fi
-echo "off" > /tmp/transparency_state
+echo "off" > "$HOME/.config/47industries/transparency-state"
 
 ok "Done."
 
@@ -479,7 +480,10 @@ echo -e "[SeatDefaults]\ncursor-theme=WhiteSur-cursors\ncursor-theme-size=24" | 
 # Plymouth boot splash (47 logo on boot)
 if [ -d "$SCRIPT_DIR/system/plymouth/47-logo" ]; then
     sudo cp -r "$SCRIPT_DIR/system/plymouth/47-logo" /usr/share/plymouth/themes/
-    sudo plymouth-set-default-theme 47-logo 2>/dev/null
+    sudo update-alternatives --install /usr/share/plymouth/themes/default.plymouth default.plymouth \
+        /usr/share/plymouth/themes/47-logo/47-logo.plymouth 200 2>/dev/null
+    sudo update-alternatives --set default.plymouth \
+        /usr/share/plymouth/themes/47-logo/47-logo.plymouth 2>/dev/null
     sudo update-initramfs -u 2>/dev/null
     ok "Plymouth boot splash installed (47 logo)."
 fi
@@ -546,9 +550,9 @@ FIRSTLOGIN
 
 cat > "$HOME/.config/47industries/apply-rice.sh" <<'APPLYSCRIPT'
 #!/bin/bash
-# 47OS Rice - First Login Script (lightweight)
+# 47OS Rice - First Login Script
 # The heavy lifting is done by the system dconf database + gschema override.
-# This script only handles user-specific paths (keybindings with $HOME).
+# This script handles: user-specific paths, menu icon patch, transparency init.
 
 sleep 5  # Wait for Cinnamon to fully load
 
@@ -560,6 +564,24 @@ INI="$INSTALL_DIR/config/dconf/user-settings.ini"
 if [ -f "$INI" ]; then
     sed "s|HOMEDIR|$HOME|g" "$INI" | dconf load /
 fi
+
+# Patch menu icon in Cinnamon's generated config (it overwrites our 0.json on first load)
+MENU_CFG="$HOME/.config/cinnamon/spices/menu@cinnamon.org/0.json"
+if [ -f "$MENU_CFG" ] && command -v python3 &>/dev/null; then
+    python3 -c "
+import json
+with open('$MENU_CFG') as f:
+    d = json.load(f)
+d['menu-custom']['value'] = True
+d['menu-icon']['value'] = '$HOME/Documents/47industries/panel-icon.png'
+d['menu-icon-size']['value'] = 32
+with open('$MENU_CFG', 'w') as f:
+    json.dump(d, f, indent=4)
+" 2>/dev/null
+fi
+
+# Init transparency state
+echo "off" > "$HOME/.config/47industries/transparency-state"
 
 # Self-destruct
 rm -f "$HOME/.config/autostart/47os-first-login.desktop"

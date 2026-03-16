@@ -22,7 +22,7 @@ if cls == "Gnome-terminal" or cls == "gnome-terminal" then
 end
 
 -- Check if transparency is on
-local f = io.open("/tmp/transparency_state", "r")
+local f = io.open(os.getenv("HOME") .. "/.config/47industries/transparency-state", "r")
 local state = "off"
 if f then
     state = f:read("*l") or "off"

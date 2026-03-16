@@ -24,7 +24,7 @@ let skip = ['menu@cinnamon.org'];
 let GLib = imports.gi.GLib;
 let tState = 'off';
 try {
-    let [ok, raw] = GLib.file_get_contents('/tmp/transparency_state');
+    let [ok, raw] = GLib.file_get_contents(GLib.build_filenamev([GLib.get_home_dir(), '.config', '47industries', 'transparency-state']));
     tState = raw.toString().trim();
 } catch(e) {}
 if (tState === 'on') {

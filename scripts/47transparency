@@ -2,7 +2,7 @@
 # 47 Industries - Transparency level control
 STATE_DIR="$HOME/.config/47industries"
 STATE_FILE="$STATE_DIR/transparency-level"
-TRANS_STATE="/tmp/transparency_state"
+TRANS_STATE="$HOME/.config/47industries/transparency-state"
 mkdir -p "$STATE_DIR"
 if [ ! -f "$STATE_FILE" ]; then echo "50" > "$STATE_FILE"; fi
 case "$1" in

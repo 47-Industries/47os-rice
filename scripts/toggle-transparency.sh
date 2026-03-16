@@ -1,5 +1,5 @@
 #!/bin/bash
-STATE_FILE="/tmp/transparency_state"
+STATE_FILE="$HOME/.config/47industries/transparency-state"
 ALACRITTY_CFG="$HOME/.config/alacritty/alacritty.toml"
 
 # Detect desktop environment
