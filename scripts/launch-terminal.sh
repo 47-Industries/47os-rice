@@ -9,5 +9,6 @@ play_sound() {
     fi
 }
 play_sound "$SFX_OPEN"
+cd "$HOME"
 alacritty
 play_sound "$SFX_CLOSE"

@@ -462,6 +462,24 @@ sudo mkdir -p /etc/lightdm/lightdm.conf.d
 echo -e "[SeatDefaults]\ncursor-theme=WhiteSur-cursors\ncursor-theme-size=24" | \
     sudo tee /etc/lightdm/lightdm.conf.d/51-cursor.conf > /dev/null 2>/dev/null
 
+# Plymouth boot splash (47 logo on boot)
+if [ -d "$SCRIPT_DIR/system/plymouth/47-logo" ]; then
+    sudo cp -r "$SCRIPT_DIR/system/plymouth/47-logo" /usr/share/plymouth/themes/
+    sudo plymouth-set-default-theme 47-logo 2>/dev/null
+    sudo update-initramfs -u 2>/dev/null
+    ok "Plymouth boot splash installed (47 logo)."
+fi
+
+# GRUB — instant boot, 47 OS branding
+sudo sed -i 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=0/' /etc/default/grub 2>/dev/null
+sudo sed -i 's/^GRUB_TIMEOUT_STYLE=.*/GRUB_TIMEOUT_STYLE=hidden/' /etc/default/grub 2>/dev/null
+if ! grep -q "GRUB_TIMEOUT_STYLE" /etc/default/grub 2>/dev/null; then
+    echo 'GRUB_TIMEOUT_STYLE=hidden' | sudo tee -a /etc/default/grub > /dev/null
+fi
+sudo sed -i "s/^GRUB_DISTRIBUTOR=.*/GRUB_DISTRIBUTOR=\"47 OS\"/" /etc/default/grub 2>/dev/null
+sudo update-grub 2>/dev/null
+ok "GRUB configured (instant boot, 47 OS branding)."
+
 # dconf system defaults
 sudo mkdir -p /etc/dconf/db/local.d
 sudo cp "$SCRIPT_DIR/system/dconf/00-47os-defaults" /etc/dconf/db/local.d/ 2>/dev/null
@@ -590,6 +608,21 @@ dconf write /org/cinnamon/settings-daemon/plugins/power/sleep-display-ac 0 2>/de
 # Disable built-in keybindings that conflict with our custom ones
 dconf write /org/cinnamon/desktop/keybindings/media-keys/screensaver "['']" 2>/dev/null
 dconf write /org/cinnamon/desktop/keybindings/media-keys/terminal "['']" 2>/dev/null
+
+# Touchpad gestures
+dconf write /org/cinnamon/gestures/swipe-down-2 "'PUSH_TILE_DOWN::end'" 2>/dev/null
+dconf write /org/cinnamon/gestures/swipe-down-3 "'TOGGLE_OVERVIEW::end'" 2>/dev/null
+dconf write /org/cinnamon/gestures/swipe-down-4 "'VOLUME_DOWN::end'" 2>/dev/null
+dconf write /org/cinnamon/gestures/swipe-left-2 "'PUSH_TILE_LEFT::end'" 2>/dev/null
+dconf write /org/cinnamon/gestures/swipe-left-3 "'WORKSPACE_NEXT::end'" 2>/dev/null
+dconf write /org/cinnamon/gestures/swipe-left-4 "'WINDOW_WORKSPACE_PREVIOUS::end'" 2>/dev/null
+dconf write /org/cinnamon/gestures/swipe-right-2 "'PUSH_TILE_RIGHT::end'" 2>/dev/null
+dconf write /org/cinnamon/gestures/swipe-right-3 "'WORKSPACE_PREVIOUS::end'" 2>/dev/null
+dconf write /org/cinnamon/gestures/swipe-right-4 "'WINDOW_WORKSPACE_NEXT::end'" 2>/dev/null
+dconf write /org/cinnamon/gestures/swipe-up-2 "'PUSH_TILE_UP::end'" 2>/dev/null
+dconf write /org/cinnamon/gestures/swipe-up-3 "'TOGGLE_EXPO::end'" 2>/dev/null
+dconf write /org/cinnamon/gestures/swipe-up-4 "'VOLUME_UP::end'" 2>/dev/null
+dconf write /org/cinnamon/gestures/tap-3 "'MEDIA_PLAY_PAUSE::end'" 2>/dev/null
 
 # Desktop effects
 gset org.cinnamon desktop-effects true
@@ -724,6 +757,21 @@ ok "Done (existing applets preserved)."
 # ============================================================
 progress "Setting up terminal splash screen..."
 
+# Red prompt color
+if ! grep -q '01;31m' "$HOME/.bashrc" 2>/dev/null; then
+    sed -i 's/\\033\[01;32m/\\033[01;31m/g' "$HOME/.bashrc" 2>/dev/null
+    ok "Bash prompt set to red."
+fi
+
+# Add ~/bin to PATH
+if ! grep -q 'HOME/bin' "$HOME/.bashrc" 2>/dev/null; then
+    echo '' >> "$HOME/.bashrc"
+    echo '# Add ~/bin to PATH for custom scripts' >> "$HOME/.bashrc"
+    echo 'export PATH="$HOME/bin:$PATH"' >> "$HOME/.bashrc"
+fi
+mkdir -p "$HOME/bin"
+
+# Matrix splash screen
 if ! grep -q "matrix-47.py" "$HOME/.bashrc" 2>/dev/null; then
     echo '' >> "$HOME/.bashrc"
     echo '# 47 Industries Terminal Splash' >> "$HOME/.bashrc"
