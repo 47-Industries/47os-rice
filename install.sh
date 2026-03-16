@@ -510,247 +510,203 @@ THEMEDESKTOP
 ok "Done."
 
 # ============================================================
-# STEP 11: Configure Plank dock via dconf
+# STEP 11: Write first-login apply script
 # ============================================================
-progress "Configuring Plank dock..."
-dconf write /net/launchpad/plank/docks/dock1/alignment "'center'" 2>/dev/null
-dconf write /net/launchpad/plank/docks/dock1/hide-mode "'intelligent'" 2>/dev/null
-dconf write /net/launchpad/plank/docks/dock1/icon-size 52 2>/dev/null
-dconf write /net/launchpad/plank/docks/dock1/items-alignment "'center'" 2>/dev/null
-dconf write /net/launchpad/plank/docks/dock1/lock-items false 2>/dev/null
-dconf write /net/launchpad/plank/docks/dock1/offset 0 2>/dev/null
-dconf write /net/launchpad/plank/docks/dock1/position "'bottom'" 2>/dev/null
-dconf write /net/launchpad/plank/docks/dock1/pressure-reveal false 2>/dev/null
-dconf write /net/launchpad/plank/docks/dock1/theme "'Transparent'" 2>/dev/null
-dconf write /net/launchpad/plank/docks/dock1/zoom-enabled true 2>/dev/null
-dconf write /net/launchpad/plank/docks/dock1/zoom-percent 175 2>/dev/null
-dconf write /net/launchpad/plank/docks/dock1/dock-items "['03-terminal.dockitem', 'brave-browser.dockitem', '04-mail.dockitem', '05-maps.dockitem', '07-camera.dockitem', '06-photos.dockitem', '08-contacts.dockitem', '10-editor.dockitem', '12-calculator.dockitem', '14-clocks.dockitem', '15-drawing.dockitem', '16-scanner.dockitem', '11-music.dockitem', 'nemo.dockitem', '17-settings.dockitem']" 2>/dev/null
-ok "Done."
+# CRITICAL: Don't modify dconf/gsettings live — it crashes Cinnamon.
+# Instead, write a one-shot script that runs on NEXT login.
+# This is the same approach that worked for the 47OS ISO installer.
+progress "Creating first-login apply script..."
 
-# ============================================================
-# STEP 12: Apply theme via gsettings
-# ============================================================
-progress "Applying theme settings..."
+cat > "$HOME/.config/autostart/47os-first-login.desktop" <<'FIRSTLOGIN'
+[Desktop Entry]
+Type=Application
+Name=47OS First Login Setup
+Exec=/bin/bash -c "$HOME/.config/47industries/apply-rice.sh"
+Hidden=false
+NoDisplay=true
+X-GNOME-Autostart-enabled=true
+X-GNOME-Autostart-Delay=3
+FIRSTLOGIN
 
-gset org.cinnamon.theme name 'WhiteSur-Dark'
-gset org.cinnamon.desktop.interface gtk-theme 'WhiteSur-Dark'
-gset org.cinnamon.desktop.interface icon-theme 'WhiteSur-dark'
-gset org.cinnamon.desktop.interface cursor-theme 'WhiteSur-cursors'
-gset org.cinnamon.desktop.interface font-name 'SF Pro Display 10'
-gset org.cinnamon.desktop.wm.preferences theme 'WhiteSur-Dark'
-gset org.cinnamon.desktop.wm.preferences titlebar-font 'SF Pro Display Bold 10'
-gset org.cinnamon.desktop.background picture-uri 'file:///usr/share/backgrounds/sequoia-sunrise.jpg'
-gset org.cinnamon.desktop.background picture-options 'zoom'
+cat > "$HOME/.config/47industries/apply-rice.sh" <<APPLYSCRIPT
+#!/bin/bash
+# 47OS Rice - First Login Apply Script
+# Runs once on first login after install, then removes itself.
+# This prevents Cinnamon from crashing during live dconf changes.
 
-gset org.gnome.desktop.interface gtk-theme 'WhiteSur-Dark'
-gset org.gnome.desktop.interface icon-theme 'WhiteSur-dark'
-gset org.gnome.desktop.interface cursor-theme 'WhiteSur-cursors'
+sleep 3  # Wait for Cinnamon to fully load
 
-# Panel — move to top, set height, icon sizes
-gset org.cinnamon panels-enabled "['1:0:top']"
-gset org.cinnamon panels-height "['1:28']"
-gset org.cinnamon panel-scale-text-icons true
-gset org.cinnamon app-menu-icon-name '47os-logo'
-gset org.cinnamon system-icon '47os-logo'
-dconf write /org/cinnamon/panel-zone-icon-sizes "'[{\"panelId\": 1, \"left\": 22, \"center\": 0, \"right\": 24}]'" 2>/dev/null
-dconf write /org/cinnamon/panel-zone-symbolic-icon-sizes "'[{\"panelId\": 1, \"left\": 28, \"center\": 28, \"right\": 16}]'" 2>/dev/null
-dconf write /org/cinnamon/next-applet-id 22 2>/dev/null
+# ---- THEME ----
+gsettings set org.cinnamon.theme name 'WhiteSur-Dark'
+gsettings set org.cinnamon.desktop.interface gtk-theme 'WhiteSur-Dark'
+gsettings set org.cinnamon.desktop.interface icon-theme 'WhiteSur-dark'
+gsettings set org.cinnamon.desktop.interface cursor-theme 'WhiteSur-cursors'
+gsettings set org.cinnamon.desktop.interface font-name 'SF Pro Display 10'
+gsettings set org.cinnamon.desktop.wm.preferences theme 'WhiteSur-Dark'
+gsettings set org.cinnamon.desktop.wm.preferences titlebar-font 'SF Pro Display Bold 10'
+gsettings set org.cinnamon.desktop.wm.preferences button-layout ':minimize,maximize,close'
+gsettings set org.cinnamon.desktop.background picture-uri 'file:///usr/share/backgrounds/sequoia-sunrise.jpg'
+gsettings set org.cinnamon.desktop.background picture-options 'zoom'
+gsettings set org.gnome.desktop.interface gtk-theme 'WhiteSur-Dark' 2>/dev/null
+gsettings set org.gnome.desktop.interface icon-theme 'WhiteSur-dark' 2>/dev/null
+gsettings set org.gnome.desktop.interface cursor-theme 'WhiteSur-cursors' 2>/dev/null
 
-# Startup animation off, effects tuning
-dconf write /org/cinnamon/startup-animation false 2>/dev/null
-dconf write /org/cinnamon/enable-vfade false 2>/dev/null
-dconf write /org/cinnamon/window-effect-speed 2 2>/dev/null
-dconf write /org/cinnamon/enable-animations true 2>/dev/null
+# ---- PANEL ----
+gsettings set org.cinnamon panels-enabled "['1:0:top']"
+gsettings set org.cinnamon panels-height "['1:28']"
+gsettings set org.cinnamon panel-scale-text-icons true
+gsettings set org.cinnamon app-menu-icon-name '47os-logo'
+gsettings set org.cinnamon system-icon '47os-logo'
+dconf write /org/cinnamon/panel-zone-icon-sizes "'[{\"panelId\": 1, \"left\": 22, \"center\": 0, \"right\": 24}]'"
+dconf write /org/cinnamon/panel-zone-symbolic-icon-sizes "'[{\"panelId\": 1, \"left\": 28, \"center\": 28, \"right\": 16}]'"
+dconf write /org/cinnamon/next-applet-id 22
 
-# Hot corners — only bottom-right scale enabled
-dconf write /org/cinnamon/hotcorner-layout "['expo:false:0', 'scale:false:0', 'scale:true:0', 'desktop:false:0']" 2>/dev/null
+# ---- APPLETS ----
+gsettings set org.cinnamon enabled-applets "['panel1:left:0:menu@cinnamon.org:0', 'panel1:right:0:systray@cinnamon.org:3', 'panel1:right:1:notifications@cinnamon.org:5', 'panel1:right:2:keyboard@cinnamon.org:8', 'panel1:right:3:ghost-mode@custom:18', 'panel1:right:4:brightness@custom:20', 'panel1:right:5:fake-wifi@custom:17', 'panel1:right:6:sound@cinnamon.org:11', 'panel1:right:7:fake-battery@custom:16', 'panel1:right:8:calendar@cinnamon.org:13']"
+gsettings set org.cinnamon enabled-extensions "['compiz-windows-effect@hermes83.github.com']"
 
-# Desktop icons off
-gset org.nemo.desktop computer-icon-visible false
-gset org.nemo.desktop home-icon-visible false
-gset org.nemo.desktop network-icon-visible false
-gset org.nemo.desktop trash-icon-visible false
-gset org.nemo.desktop volumes-visible false
-gset org.nemo.desktop font 'SF Pro Display 10'
+# ---- EFFECTS ----
+gsettings set org.cinnamon desktop-effects true
+gsettings set org.cinnamon desktop-effects-close 'scale'
+gsettings set org.cinnamon desktop-effects-map 'scale'
+gsettings set org.cinnamon desktop-effects-minimize 'traditional'
+gsettings set org.cinnamon desktop-effects-on-dialogs true
+gsettings set org.cinnamon desktop-effects-on-menus true
+dconf write /org/cinnamon/startup-animation false
+dconf write /org/cinnamon/enable-vfade false
+dconf write /org/cinnamon/window-effect-speed 2
+dconf write /org/cinnamon/enable-animations true
+dconf write /org/cinnamon/hotcorner-layout "['expo:false:0', 'scale:false:0', 'scale:true:0', 'desktop:false:0']"
 
-# Window manager — button layout, titlebar font
-gset org.cinnamon.desktop.wm.preferences button-layout ':minimize,maximize,close'
-gset org.cinnamon.desktop.wm.preferences titlebar-font 'SF Pro Display Bold 10'
+# ---- NEMO / DESKTOP ----
+gsettings set org.nemo.desktop computer-icon-visible false
+gsettings set org.nemo.desktop home-icon-visible false
+gsettings set org.nemo.desktop network-icon-visible false
+gsettings set org.nemo.desktop trash-icon-visible false
+gsettings set org.nemo.desktop volumes-visible false
+gsettings set org.nemo.desktop font 'SF Pro Display 10'
 
-# Muffin compositor
-dconf write /org/cinnamon/muffin/draggable-border-width 10 2>/dev/null
-dconf write /org/cinnamon/muffin/edge-tiling false 2>/dev/null
-dconf write /org/cinnamon/muffin/placement-mode "'pointer'" 2>/dev/null
-dconf write /org/cinnamon/muffin/unredirect-fullscreen-windows true 2>/dev/null
+# ---- MUFFIN COMPOSITOR ----
+dconf write /org/cinnamon/muffin/draggable-border-width 10
+dconf write /org/cinnamon/muffin/edge-tiling false
+dconf write /org/cinnamon/muffin/placement-mode "'pointer'"
+dconf write /org/cinnamon/muffin/unredirect-fullscreen-windows true
 
-# Screensaver / lock screen
-dconf write /org/cinnamon/desktop/screensaver/lock-enabled false 2>/dev/null
-dconf write /org/cinnamon/desktop/screensaver/lock-delay "uint32 0" 2>/dev/null
-dconf write /org/cinnamon/desktop/screensaver/allow-media-control false 2>/dev/null
-dconf write /org/cinnamon/desktop/screensaver/floating-widgets false 2>/dev/null
-dconf write /org/cinnamon/desktop/screensaver/show-album-art false 2>/dev/null
-dconf write /org/cinnamon/desktop/screensaver/show-info-panel true 2>/dev/null
-dconf write /org/cinnamon/desktop/screensaver/show-notifications false 2>/dev/null
-dconf write /org/cinnamon/desktop/screensaver/font-date "'%A, %B %-d'" 2>/dev/null
-dconf write /org/cinnamon/desktop/screensaver/font-time "'%-I:%M %p'" 2>/dev/null
+# ---- SCREENSAVER / LOCK ----
+dconf write /org/cinnamon/desktop/screensaver/lock-enabled false
+dconf write /org/cinnamon/desktop/screensaver/lock-delay "uint32 0"
+dconf write /org/cinnamon/desktop/screensaver/allow-media-control false
+dconf write /org/cinnamon/desktop/screensaver/floating-widgets false
+dconf write /org/cinnamon/desktop/screensaver/show-album-art false
+dconf write /org/cinnamon/desktop/screensaver/show-info-panel true
+dconf write /org/cinnamon/desktop/screensaver/show-notifications false
+dconf write /org/cinnamon/desktop/screensaver/font-date "'%A, %B %-d'"
+dconf write /org/cinnamon/desktop/screensaver/font-time "'%-I:%M %p'"
 
-# Sound: disable system event sounds (we use our own)
-dconf write /org/cinnamon/desktop/sound/event-sounds false 2>/dev/null
+# ---- SOUND / KEYBOARD / POWER ----
+dconf write /org/cinnamon/desktop/sound/event-sounds false
+dconf write /org/cinnamon/desktop/peripherals/keyboard/numlock-state true
+dconf write /org/cinnamon/desktop/peripherals/keyboard/delay "uint32 500"
+dconf write /org/cinnamon/desktop/peripherals/keyboard/repeat-interval "uint32 30"
+dconf write /org/cinnamon/settings-daemon/plugins/power/sleep-display-ac 0
 
-# Keyboard: numlock on, repeat settings
-dconf write /org/cinnamon/desktop/peripherals/keyboard/numlock-state true 2>/dev/null
-dconf write /org/cinnamon/desktop/peripherals/keyboard/delay "uint32 500" 2>/dev/null
-dconf write /org/cinnamon/desktop/peripherals/keyboard/repeat-interval "uint32 30" 2>/dev/null
+# ---- DISABLE CONFLICTING KEYBINDINGS ----
+dconf write /org/cinnamon/desktop/keybindings/media-keys/screensaver "['']"
+dconf write /org/cinnamon/desktop/keybindings/media-keys/terminal "['']"
 
-# Power: never sleep display on AC
-dconf write /org/cinnamon/settings-daemon/plugins/power/sleep-display-ac 0 2>/dev/null
+# ---- TOUCHPAD GESTURES ----
+dconf write /org/cinnamon/gestures/swipe-down-2 "'PUSH_TILE_DOWN::end'"
+dconf write /org/cinnamon/gestures/swipe-down-3 "'TOGGLE_OVERVIEW::end'"
+dconf write /org/cinnamon/gestures/swipe-down-4 "'VOLUME_DOWN::end'"
+dconf write /org/cinnamon/gestures/swipe-left-2 "'PUSH_TILE_LEFT::end'"
+dconf write /org/cinnamon/gestures/swipe-left-3 "'WORKSPACE_NEXT::end'"
+dconf write /org/cinnamon/gestures/swipe-left-4 "'WINDOW_WORKSPACE_PREVIOUS::end'"
+dconf write /org/cinnamon/gestures/swipe-right-2 "'PUSH_TILE_RIGHT::end'"
+dconf write /org/cinnamon/gestures/swipe-right-3 "'WORKSPACE_PREVIOUS::end'"
+dconf write /org/cinnamon/gestures/swipe-right-4 "'WINDOW_WORKSPACE_NEXT::end'"
+dconf write /org/cinnamon/gestures/swipe-up-2 "'PUSH_TILE_UP::end'"
+dconf write /org/cinnamon/gestures/swipe-up-3 "'TOGGLE_EXPO::end'"
+dconf write /org/cinnamon/gestures/swipe-up-4 "'VOLUME_UP::end'"
+dconf write /org/cinnamon/gestures/tap-3 "'MEDIA_PLAY_PAUSE::end'"
 
-# Disable built-in keybindings that conflict with our custom ones
-dconf write /org/cinnamon/desktop/keybindings/media-keys/screensaver "['']" 2>/dev/null
-dconf write /org/cinnamon/desktop/keybindings/media-keys/terminal "['']" 2>/dev/null
+# ---- CUSTOM KEYBINDINGS ----
+dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom0/name "'47-Launch Terminal'"
+dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom0/command "'$HOME/Documents/47industries/launch-terminal.sh'"
+dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom0/binding "['<Primary><Alt>t']"
+dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom1/name "'47-Volume Up'"
+dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom1/command "'$HOME/Documents/47industries/volume-tracker.sh up'"
+dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom1/binding "['F10']"
+dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom2/name "'47-Volume Down'"
+dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom2/command "'$HOME/Documents/47industries/volume-tracker.sh down'"
+dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom2/binding "['F9']"
+dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom3/name "'47-Volume Mute'"
+dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom3/command "'$HOME/Documents/47industries/volume-tracker.sh mute'"
+dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom3/binding "['F8']"
+dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom4/name "'47-Brightness Down'"
+dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom4/command "'$HOME/Documents/47industries/brightness-tracker.sh down'"
+dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom4/binding "['F2']"
+dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom5/name "'47-Brightness Up'"
+dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom5/command "'$HOME/Documents/47industries/brightness-tracker.sh up'"
+dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom5/binding "['F3']"
+dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom6/name "'47-Toggle Transparency'"
+dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom6/command "'$HOME/Documents/47industries/toggle-transparency.sh'"
+dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom6/binding "['<Primary><Shift>t']"
+dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom7/name "'47-Close Window'"
+dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom7/command "'$HOME/Documents/47industries/close-window.sh'"
+dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom7/binding "['<Primary>q']"
+dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom8/name "'47-Toggle Fullscreen'"
+dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom8/command "'$HOME/Documents/47industries/fullscreen-toggle.sh'"
+dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom8/binding "['<Primary><Shift>f']"
+dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom9/name "'47-Lock Screen'"
+dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom9/command "'$HOME/Documents/47industries/lock-screen.sh'"
+dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom9/binding "['<Primary><Shift>l']"
+dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom10/name "'47-Maximize Window'"
+dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom10/command "'$HOME/Documents/47industries/maximize-window.sh'"
+dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom10/binding "['<Primary><Shift>Up']"
+dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom11/name "'47-Minimize Window'"
+dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom11/command "'$HOME/Documents/47industries/minimize-window.sh'"
+dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom11/binding "['<Primary><Shift>Down']"
+dconf write /org/cinnamon/desktop/keybindings/custom-list "['/org/cinnamon/desktop/keybindings/custom-keybindings/custom0/', '/org/cinnamon/desktop/keybindings/custom-keybindings/custom1/', '/org/cinnamon/desktop/keybindings/custom-keybindings/custom2/', '/org/cinnamon/desktop/keybindings/custom-keybindings/custom3/', '/org/cinnamon/desktop/keybindings/custom-keybindings/custom4/', '/org/cinnamon/desktop/keybindings/custom-keybindings/custom5/', '/org/cinnamon/desktop/keybindings/custom-keybindings/custom6/', '/org/cinnamon/desktop/keybindings/custom-keybindings/custom7/', '/org/cinnamon/desktop/keybindings/custom-keybindings/custom8/', '/org/cinnamon/desktop/keybindings/custom-keybindings/custom9/', '/org/cinnamon/desktop/keybindings/custom-keybindings/custom10/', '/org/cinnamon/desktop/keybindings/custom-keybindings/custom11/']"
 
-# Touchpad gestures
-dconf write /org/cinnamon/gestures/swipe-down-2 "'PUSH_TILE_DOWN::end'" 2>/dev/null
-dconf write /org/cinnamon/gestures/swipe-down-3 "'TOGGLE_OVERVIEW::end'" 2>/dev/null
-dconf write /org/cinnamon/gestures/swipe-down-4 "'VOLUME_DOWN::end'" 2>/dev/null
-dconf write /org/cinnamon/gestures/swipe-left-2 "'PUSH_TILE_LEFT::end'" 2>/dev/null
-dconf write /org/cinnamon/gestures/swipe-left-3 "'WORKSPACE_NEXT::end'" 2>/dev/null
-dconf write /org/cinnamon/gestures/swipe-left-4 "'WINDOW_WORKSPACE_PREVIOUS::end'" 2>/dev/null
-dconf write /org/cinnamon/gestures/swipe-right-2 "'PUSH_TILE_RIGHT::end'" 2>/dev/null
-dconf write /org/cinnamon/gestures/swipe-right-3 "'WORKSPACE_PREVIOUS::end'" 2>/dev/null
-dconf write /org/cinnamon/gestures/swipe-right-4 "'WINDOW_WORKSPACE_NEXT::end'" 2>/dev/null
-dconf write /org/cinnamon/gestures/swipe-up-2 "'PUSH_TILE_UP::end'" 2>/dev/null
-dconf write /org/cinnamon/gestures/swipe-up-3 "'TOGGLE_EXPO::end'" 2>/dev/null
-dconf write /org/cinnamon/gestures/swipe-up-4 "'VOLUME_UP::end'" 2>/dev/null
-dconf write /org/cinnamon/gestures/tap-3 "'MEDIA_PLAY_PAUSE::end'" 2>/dev/null
+# ---- PLANK DOCK ----
+dconf write /net/launchpad/plank/docks/dock1/alignment "'center'"
+dconf write /net/launchpad/plank/docks/dock1/hide-mode "'intelligent'"
+dconf write /net/launchpad/plank/docks/dock1/icon-size 52
+dconf write /net/launchpad/plank/docks/dock1/items-alignment "'center'"
+dconf write /net/launchpad/plank/docks/dock1/lock-items false
+dconf write /net/launchpad/plank/docks/dock1/offset 0
+dconf write /net/launchpad/plank/docks/dock1/position "'bottom'"
+dconf write /net/launchpad/plank/docks/dock1/pressure-reveal false
+dconf write /net/launchpad/plank/docks/dock1/theme "'Transparent'"
+dconf write /net/launchpad/plank/docks/dock1/zoom-enabled true
+dconf write /net/launchpad/plank/docks/dock1/zoom-percent 175
+dconf write /net/launchpad/plank/docks/dock1/dock-items "['03-terminal.dockitem', 'brave-browser.dockitem', '04-mail.dockitem', '05-maps.dockitem', '07-camera.dockitem', '06-photos.dockitem', '08-contacts.dockitem', '10-editor.dockitem', '12-calculator.dockitem', '14-clocks.dockitem', '15-drawing.dockitem', '16-scanner.dockitem', '11-music.dockitem', 'nemo.dockitem', '17-settings.dockitem']"
 
-# Desktop effects
-gset org.cinnamon desktop-effects true
-gset org.cinnamon desktop-effects-close 'scale'
-gset org.cinnamon desktop-effects-map 'scale'
-gset org.cinnamon desktop-effects-minimize 'traditional'
-gset org.cinnamon desktop-effects-on-dialogs true
-gset org.cinnamon desktop-effects-on-menus true
-
-ok "Done."
-
-# ============================================================
-# STEP 13: Set custom keybindings — APPEND, don't replace
-# ============================================================
-progress "Setting custom keybindings..."
-
-# Read existing custom keybindings list
-EXISTING_LIST=$(dconf read /org/cinnamon/desktop/keybindings/custom-list 2>/dev/null)
-
-# Find the next available index
-NEXT_IDX=0
-if [ -n "$EXISTING_LIST" ] && [ "$EXISTING_LIST" != "@as []" ]; then
-    # Extract all existing indices
-    for idx in $(echo "$EXISTING_LIST" | grep -oP "custom(\d+)" | grep -oP "\d+"); do
-        if [ "$idx" -ge "$NEXT_IDX" ]; then
-            NEXT_IDX=$((idx + 1))
-        fi
-    done
-fi
-
-KEYBINDING_DIR="/org/cinnamon/desktop/keybindings/custom-keybindings"
-NEW_KEYS=()
-
-add_keybinding() {
-    local name="$1" cmd="$2" binding="$3"
-    local path="${KEYBINDING_DIR}/custom${NEXT_IDX}/"
-    dconf write "${path}name" "'$name'" 2>/dev/null
-    dconf write "${path}command" "'$cmd'" 2>/dev/null
-    dconf write "${path}binding" "['$binding']" 2>/dev/null
-    NEW_KEYS+=("'${path}'")
-    NEXT_IDX=$((NEXT_IDX + 1))
-}
-
-add_keybinding "47-Launch Terminal" "$HOME/Documents/47industries/launch-terminal.sh" "<Primary><Alt>t"
-add_keybinding "47-Volume Up" "$HOME/Documents/47industries/volume-tracker.sh up" "F10"
-add_keybinding "47-Volume Down" "$HOME/Documents/47industries/volume-tracker.sh down" "F9"
-add_keybinding "47-Volume Mute" "$HOME/Documents/47industries/volume-tracker.sh mute" "F8"
-add_keybinding "47-Brightness Down" "$HOME/Documents/47industries/brightness-tracker.sh down" "F2"
-add_keybinding "47-Brightness Up" "$HOME/Documents/47industries/brightness-tracker.sh up" "F3"
-add_keybinding "47-Toggle Transparency" "$HOME/Documents/47industries/toggle-transparency.sh" "<Primary><Shift>t"
-add_keybinding "47-Close Window" "$HOME/Documents/47industries/close-window.sh" "<Primary>q"
-add_keybinding "47-Toggle Fullscreen" "$HOME/Documents/47industries/fullscreen-toggle.sh" "<Primary><Shift>f"
-add_keybinding "47-Lock Screen" "$HOME/Documents/47industries/lock-screen.sh" "<Primary><Shift>l"
-add_keybinding "47-Maximize Window" "$HOME/Documents/47industries/maximize-window.sh" "<Primary><Shift>Up"
-add_keybinding "47-Minimize Window" "$HOME/Documents/47industries/minimize-window.sh" "<Primary><Shift>Down"
-
-# Merge new keys with existing list
-if [ -n "$EXISTING_LIST" ] && [ "$EXISTING_LIST" != "@as []" ]; then
-    # Strip the outer brackets, combine
-    EXISTING_INNER=$(echo "$EXISTING_LIST" | sed "s/^\[//;s/\]$//")
-    NEW_INNER=$(IFS=','; echo "${NEW_KEYS[*]}")
-    MERGED="[${EXISTING_INNER}, ${NEW_INNER}]"
-else
-    MERGED="[$(IFS=','; echo "${NEW_KEYS[*]}")]"
-fi
-dconf write /org/cinnamon/desktop/keybindings/custom-list "$MERGED" 2>/dev/null
-
-ok "12 keybindings added (existing keybindings preserved)."
-
-# ============================================================
-# STEP 14: Set panel applets — APPEND custom ones
-# ============================================================
-progress "Configuring panel applets..."
-
-# Get current applets
-CURRENT_APPLETS=$(gsettings get org.cinnamon enabled-applets 2>/dev/null)
-
-# Our custom applets to add
-CUSTOM_APPLETS=(
-    "'panel1:right:10:ghost-mode@custom:18'"
-    "'panel1:right:11:brightness@custom:20'"
-    "'panel1:right:12:fake-wifi@custom:17'"
-    "'panel1:right:13:fake-battery@custom:16'"
-)
-
-if [ -n "$CURRENT_APPLETS" ] && [ "$CURRENT_APPLETS" != "@as []" ]; then
-    # Remove any existing 47OS applets first (in case of re-install)
-    CLEANED=$(echo "$CURRENT_APPLETS" | sed "s/'[^']*ghost-mode@custom[^']*'//g; s/'[^']*brightness@custom[^']*'//g; s/'[^']*fake-wifi@custom[^']*'//g; s/'[^']*fake-battery@custom[^']*'//g; s/'[^']*47sound@custom[^']*'//g")
-    # Clean up malformed commas: leading comma after [, trailing comma before ], double commas
-    CLEANED=$(echo "$CLEANED" | sed 's/,\s*,/,/g; s/\[\s*,/[/g; s/,\s*\]/]/g; s/,\s*,/,/g')
-
-    # Strip outer brackets
-    INNER=$(echo "$CLEANED" | sed "s/^\[//;s/\]$//;s/^@as \[//")
-
-    # Append our applets
-    NEW_APPLETS="[${INNER}, $(IFS=','; echo "${CUSTOM_APPLETS[*]}")]"
-else
-    NEW_APPLETS="['panel1:left:0:menu@cinnamon.org:0', 'panel1:right:0:systray@cinnamon.org:3', 'panel1:right:1:notifications@cinnamon.org:5', 'panel1:right:2:sound@cinnamon.org:11', 'panel1:right:3:calendar@cinnamon.org:13', $(IFS=','; echo "${CUSTOM_APPLETS[*]}")]"
-fi
-
-gset org.cinnamon enabled-applets "$NEW_APPLETS"
-
-# Configure the app menu icon — find the actual instance ID from enabled-applets
-MENU_INSTANCE_ID=$(gsettings get org.cinnamon enabled-applets 2>/dev/null | grep -oP 'menu@cinnamon\.org:\K\d+' | head -1)
-MENU_INSTANCE_ID="${MENU_INSTANCE_ID:-0}"
-mkdir -p "$HOME/.config/cinnamon/spices/menu@cinnamon.org"
-cat > "$HOME/.config/cinnamon/spices/menu@cinnamon.org/${MENU_INSTANCE_ID}.json" <<MENUJSON
+# ---- MENU ICON CONFIG ----
+mkdir -p "\$HOME/.config/cinnamon/spices/menu@cinnamon.org"
+cat > "\$HOME/.config/cinnamon/spices/menu@cinnamon.org/0.json" <<'MENUCFG'
 {
     "menu-icon-custom": {"type": "checkbox", "default": true, "value": true},
-    "menu-icon": {"type": "iconfilechooser", "default": "", "value": "$HOME/Documents/47industries/panel-icon.png"},
+    "menu-icon": {"type": "iconfilechooser", "default": "", "value": "HOMEDIR/Documents/47industries/panel-icon.png"},
     "menu-icon-size": {"type": "spinbutton", "default": 28, "value": 32}
 }
-MENUJSON
+MENUCFG
+sed -i "s|HOMEDIR|\$HOME|g" "\$HOME/.config/cinnamon/spices/menu@cinnamon.org/0.json"
 
-# Enable wobbly windows — APPEND, don't replace
-CURRENT_EXTS=$(gsettings get org.cinnamon enabled-extensions 2>/dev/null)
-if echo "$CURRENT_EXTS" | grep -q "compiz-windows-effect"; then
-    ok "Wobbly windows already enabled."
-else
-    if [ -n "$CURRENT_EXTS" ] && [ "$CURRENT_EXTS" != "@as []" ]; then
-        INNER_EXTS=$(echo "$CURRENT_EXTS" | sed "s/^\[//;s/\]$//;s/^@as \[//")
-        gset org.cinnamon enabled-extensions "[${INNER_EXTS}, 'compiz-windows-effect@hermes83.github.com']"
-    else
-        gset org.cinnamon enabled-extensions "['compiz-windows-effect@hermes83.github.com']"
-    fi
-fi
+# ---- RESTART CINNAMON TO APPLY ----
+sleep 1
+nohup cinnamon --replace > /dev/null 2>&1 &
 
-ok "Done (existing applets preserved)."
+# ---- SELF-DESTRUCT: Remove this autostart entry ----
+rm -f "\$HOME/.config/autostart/47os-first-login.desktop"
+
+notify-send "47 Industries" "Rice applied successfully! All features active." -i dialog-information
+APPLYSCRIPT
+
+chmod +x "$HOME/.config/47industries/apply-rice.sh"
+
+ok "First-login apply script created. All settings will apply on next login."
+ok "This prevents Cinnamon from crashing during the install."
 
 # ============================================================
 # STEP 15: Add splash screen to .bashrc
