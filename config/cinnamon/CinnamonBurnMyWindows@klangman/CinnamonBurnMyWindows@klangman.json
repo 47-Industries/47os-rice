@@ -904,7 +904,7 @@
         "description": "Special handling for dialog windows",
         "tooltip": "Allows you to define special settings for handling dialog window types (i.e. file open dialog windows). These settings will override any application specific settings that may have been defined.",
         "default": false,
-        "value": false
+        "value": true
     },
     "dialog-open-effect": {
         "type": "combobox",
@@ -937,7 +937,7 @@
         },
         "description": "Open dialog window effect",
         "dependency": "dialog-special=true",
-        "value": 0
+        "value": 6
     },
     "dialog-close-effect": {
         "type": "combobox",
@@ -970,7 +970,7 @@
         },
         "description": "Close dialog window effect",
         "dependency": "dialog-special=true",
-        "value": 0
+        "value": 6
     },
     "minimize-effect": {
         "type": "combobox",
