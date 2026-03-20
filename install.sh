@@ -164,6 +164,14 @@ else
     ok "Brave browser already installed."
 fi
 
+# Replace Brave icon with Safari icon (macOS look)
+if [ -f /usr/share/icons/WhiteSur-dark/apps/scalable/safari.svg ]; then
+    sudo cp /usr/share/icons/WhiteSur-dark/apps/scalable/safari.svg /usr/share/icons/WhiteSur-dark/apps/scalable/brave-browser.svg
+    sudo cp /usr/share/icons/WhiteSur-dark/apps/scalable/safari.svg /usr/share/icons/WhiteSur-dark/apps/scalable/com.brave.Browser.svg
+    sudo gtk-update-icon-cache /usr/share/icons/WhiteSur-dark/ 2>/dev/null
+    ok "Brave icon replaced with Safari icon."
+fi
+
 # Remove Firefox — Brave is the 47OS browser
 if dpkg -l firefox 2>/dev/null | grep -q "^ii"; then
     echo "  Removing Firefox..."
