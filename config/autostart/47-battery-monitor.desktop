@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=47 Battery Monitor
+Exec=$HOME/Documents/47industries/battery-monitor.sh
+Terminal=false
+Type=Application
+X-GNOME-Autostart-enabled=true
+Hidden=false
+NoDisplay=true

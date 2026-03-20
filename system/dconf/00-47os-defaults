@@ -30,6 +30,8 @@ font-name='SF Pro Display 10'
 theme='WhiteSur-Dark'
 titlebar-font='SF Pro Display Bold 10'
 button-layout=':minimize,maximize,close'
+num-workspaces=4
+workspace-names=['Desktop 1', 'Desktop 2', 'Desktop 3', 'Desktop 4']
 
 [org/cinnamon/desktop/background]
 picture-uri='file:///usr/share/backgrounds/sequoia-sunrise.jpg'
@@ -47,7 +49,7 @@ font-date='%A, %B %-d'
 font-time='%-I:%M %p'
 
 [org/cinnamon/desktop/sound]
-event-sounds=false
+event-sounds=true
 
 [org/cinnamon/desktop/peripherals/keyboard]
 numlock-state=true

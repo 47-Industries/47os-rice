@@ -141,8 +141,8 @@ progress "Installing system packages..."
 sudo apt update -qq 2>/dev/null
 if sudo apt install -y \
     alacritty plank rofi xdotool wmctrl xbindkeys xss-lock \
-    brightnessctl pulseaudio-utils maim nemo-preview \
-    inotify-tools devilspie2 macchanger x11-utils \
+    brightnessctl pulseaudio-utils maim nemo-preview copyq kdeconnect \
+    inotify-tools devilspie2 macchanger x11-utils ffmpeg \
     python3 jq curl wget git dconf-cli lm-sensors \
     gnome-maps gnome-contacts gnome-clocks gnome-calendar cheese \
     rhythmbox shotwell drawing simple-scan 2>/dev/null; then
@@ -307,6 +307,37 @@ cp "$SCRIPT_DIR/assets/sounds/drag/"* "$HOME/.local/share/47industries/sounds/" 
 mkdir -p "$HOME/Documents/47industries/sounds"
 cp "$SCRIPT_DIR/assets/sounds/ui/"* "$HOME/Documents/47industries/sounds/" 2>/dev/null
 
+# Generate system sounds if not present
+SOUNDS="$HOME/Documents/47industries/sounds"
+if [ ! -f "$SOUNDS/startup.ogg" ] && command -v ffmpeg &>/dev/null; then
+    progress "Generating system sounds..."
+    # Startup chime (ascending two-tone)
+    ffmpeg -y -f lavfi -i "sine=frequency=523:duration=0.3" -f lavfi -i "sine=frequency=659:duration=0.4" \
+        -filter_complex "[0]afade=t=in:d=0.05,afade=t=out:st=0.2:d=0.1,volume=0.4[a];[1]adelay=200|200,afade=t=in:d=0.05,afade=t=out:st=0.25:d=0.15,volume=0.4[b];[a][b]amix=inputs=2:duration=longest,aecho=0.8:0.7:40:0.3" \
+        "$SOUNDS/startup.ogg" 2>/dev/null
+    # Charging boop
+    ffmpeg -y -f lavfi -i "sine=frequency=880:duration=0.15" -f lavfi -i "sine=frequency=1175:duration=0.15" \
+        -filter_complex "[0]afade=t=in:d=0.02,afade=t=out:st=0.1:d=0.05,volume=0.3[a];[1]adelay=100|100,afade=t=in:d=0.02,afade=t=out:st=0.1:d=0.05,volume=0.3[b];[a][b]amix=inputs=2:duration=longest" \
+        "$SOUNDS/charging.ogg" 2>/dev/null
+    # Lock click
+    ffmpeg -y -f lavfi -i "sine=frequency=1000:duration=0.08" \
+        -af "afade=t=in:d=0.01,afade=t=out:st=0.04:d=0.04,volume=0.25" \
+        "$SOUNDS/lock.ogg" 2>/dev/null
+    ok "System sounds generated."
+fi
+
+# Configure Cinnamon system sounds
+gsettings set org.cinnamon.sounds login-enabled true
+gsettings set org.cinnamon.sounds login-file "$SOUNDS/startup.ogg"
+gsettings set org.cinnamon.sounds plug-enabled true
+gsettings set org.cinnamon.sounds plug-file "$SOUNDS/charging.ogg"
+gsettings set org.cinnamon.sounds unplug-enabled true
+gsettings set org.cinnamon.sounds unplug-file "$SOUNDS/charging.ogg"
+gsettings set org.cinnamon.sounds tile-enabled true
+gsettings set org.cinnamon.sounds notification-enabled true
+gsettings set org.cinnamon.sounds switch-enabled true
+gsettings set org.cinnamon.sounds logout-enabled true
+
 ok "Done."
 
 # ============================================================
@@ -330,7 +361,8 @@ for script in launch-terminal.sh toggle-transparency.sh window-close-sound.py \
               window-state-sound.py brightness-tracker.sh volume-tracker.sh \
               close-window.sh maximize-window.sh minimize-window.sh \
               fullscreen-toggle.sh lock-screen.sh powermenu.sh app-search.sh \
-              spotlight-search.sh screenshot-float.sh; do
+              spotlight-search.sh screenshot-float.sh \
+              battery-monitor.sh dynamic-wallpaper.sh; do
     if [ -f "$SCRIPT_DIR/scripts/$script" ]; then
         cp "$SCRIPT_DIR/scripts/$script" "$HOME/Documents/47industries/$script"
         chmod +x "$HOME/Documents/47industries/$script"
