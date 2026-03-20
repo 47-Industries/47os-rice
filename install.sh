@@ -452,22 +452,6 @@ cp "$SCRIPT_DIR/config/libinput-gestures.conf" "$HOME/.config/" 2>/dev/null
 gsettings set org.cinnamon.desktop.font-rendering antialiasing 'rgba' 2>/dev/null
 gsettings set org.cinnamon.desktop.font-rendering hinting 'slight' 2>/dev/null
 
-# Window shadows + rounded CSD corners
-GTK_CSS="$HOME/.config/gtk-3.0/gtk.css"
-if ! grep -q "47os-shadows" "$GTK_CSS" 2>/dev/null; then
-    cat >> "$GTK_CSS" << 'SHADOWCSS'
-
-/* 47os-shadows start */
-decoration {
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
-    border-radius: 10px;
-}
-decoration:backdrop {
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3), 0 1px 4px rgba(0, 0, 0, 0.2);
-}
-/* 47os-shadows end */
-SHADOWCSS
-fi
 
 # Auto-extract on double-click (zip, tar, etc.)
 cp "$SCRIPT_DIR/config/auto-extract.desktop" "$HOME/.local/share/applications/" 2>/dev/null
