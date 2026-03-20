@@ -19,7 +19,27 @@ get_all_wids() {
     wmctrl -l 2>/dev/null | grep -v -E "nemo-desktop|Desktop$" | awk '{print $1}'
 }
 
-if [ -f "$STATE_FILE" ] && [ "$(cat "$STATE_FILE")" = "off" ]; then
+CURRENT_STATE=$(cat "$STATE_FILE" 2>/dev/null)
+
+# Determine action: explicit "on"/"off", or toggle
+case "$1" in
+    on)  ACTION="on" ;;
+    off) ACTION="off" ;;
+    *)
+        # Default: toggle
+        if [ "$CURRENT_STATE" = "on" ]; then
+            ACTION="off"
+        else
+            ACTION="on"
+        fi
+        ;;
+esac
+
+# Skip if already in requested state
+[ "$ACTION" = "on" ] && [ "$CURRENT_STATE" = "on" ] && exit 0
+[ "$ACTION" = "off" ] && [ "$CURRENT_STATE" != "on" ] && exit 0
+
+if [ "$ACTION" = "on" ]; then
     # ===== TURN ON TRANSPARENCY =====
     echo "on" > "$STATE_FILE"
 

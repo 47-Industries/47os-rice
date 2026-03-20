@@ -1,6 +1,7 @@
 const Applet = imports.ui.applet;
 const PopupMenu = imports.ui.popupMenu;
 const GLib = imports.gi.GLib;
+const Mainloop = imports.mainloop;
 const Util = imports.misc.util;
 const St = imports.gi.St;
 const Slider = imports.ui.slider;
@@ -151,8 +152,16 @@ class BrightnessApplet extends Applet.IconApplet {
         glassSlider.connect("value-changed", (slider, value) => {
             let lv = Math.round(value * 100);
             glassLabel.set_text(lv + "%");
-            // 47transparency handles auto-enable (>0% turns on) and auto-disable (0% turns off)
-            GLib.spawn_command_line_async(GLib.get_home_dir() + "/.local/bin/47transparency set " + lv);
+            // Debounce: wait 300ms after user stops dragging before applying
+            if (this._glassDebounce) {
+                Mainloop.source_remove(this._glassDebounce);
+                this._glassDebounce = null;
+            }
+            this._glassDebounce = Mainloop.timeout_add(300, () => {
+                this._glassDebounce = null;
+                GLib.spawn_command_line_async(GLib.get_home_dir() + "/.local/bin/47transparency set " + lv);
+                return false;
+            });
         });
         glassBox.add(glassSlider.actor, { expand: true });
 

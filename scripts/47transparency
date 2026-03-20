@@ -3,6 +3,7 @@
 STATE_DIR="$HOME/.config/47industries"
 STATE_FILE="$STATE_DIR/transparency-level"
 TRANS_STATE="$HOME/.config/47industries/transparency-state"
+TOGGLE_SCRIPT="$HOME/Documents/47industries/toggle-transparency.sh"
 mkdir -p "$STATE_DIR"
 if [ ! -f "$STATE_FILE" ]; then echo "50" > "$STATE_FILE"; fi
 case "$1" in
@@ -14,18 +15,23 @@ case "$1" in
         [ "$LEVEL" -gt 100 ] 2>/dev/null && LEVEL=100
         echo "$LEVEL" > "$STATE_FILE"
         TSTATE=$(cat "$TRANS_STATE" 2>/dev/null)
-        TOGGLE_SCRIPT="$HOME/Documents/47industries/toggle-transparency.sh"
+
         # Slider to 0 = turn off transparency
-        if [ "$LEVEL" -eq 0 ] && [ "$TSTATE" = "on" ]; then
-            [ -x "$TOGGLE_SCRIPT" ] && "$TOGGLE_SCRIPT"
+        if [ "$LEVEL" -eq 0 ]; then
+            [ "$TSTATE" = "on" ] && [ -x "$TOGGLE_SCRIPT" ] && "$TOGGLE_SCRIPT" off
             exit 0
         fi
-        # Slider above 0 but transparency is off = turn it on first
-        if [ "$LEVEL" -gt 0 ] && [ "$TSTATE" != "on" ]; then
-            [ -x "$TOGGLE_SCRIPT" ] && "$TOGGLE_SCRIPT"
-            # toggle-transparency.sh calls us back with the saved level, so exit
+
+        # Slider above 0 but transparency is off = turn it on
+        # "toggle-transparency.sh on" is idempotent — safe to call even if already on
+        if [ "$TSTATE" != "on" ]; then
+            [ -x "$TOGGLE_SCRIPT" ] && "$TOGGLE_SCRIPT" on
+            # toggle calls us back via "47transparency set $(47transparency get)" which
+            # will re-enter here with state=on and apply the level below
             exit 0
         fi
+
+        # State is "on" — apply the transparency level
         WINDOW_OPACITY=$(awk "BEGIN { printf \"%.2f\", 1.0 - ($LEVEL * 0.007) }")
         XPROP_VAL=$(awk "BEGIN { v = 1.0 - ($LEVEL * 0.007); printf \"0x%08X\", v * 4294967295 }")
         TERM_TRANS=$(awk "BEGIN { printf \"%d\", $LEVEL * 0.85 }")
