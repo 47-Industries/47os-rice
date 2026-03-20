@@ -1,7 +1,0 @@
-{
-    "uuid": "ghost-mode@custom",
-    "name": "Ghost Mode",
-    "description": "Toggle full privacy mode - VPN + MAC spoofing + encrypted DNS",
-    "version": "1.0",
-    "cinnamon-version": ["5.0"]
-}

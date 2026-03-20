@@ -151,6 +151,14 @@ class BrightnessApplet extends Applet.IconApplet {
         glassSlider.connect("value-changed", (slider, value) => {
             let lv = Math.round(value * 100);
             glassLabel.set_text(lv + "%");
+            // Auto-enable 47glass if it's off when user moves the slider
+            try {
+                let statePath = GLib.build_filenamev([GLib.get_home_dir(), ".config/47industries/transparency-state"]);
+                let [ok, raw] = GLib.file_get_contents(statePath);
+                if (ok && raw.toString().trim() !== "on") {
+                    GLib.spawn_command_line_async(GLib.build_filenamev([GLib.get_home_dir(), "Documents/47industries/toggle-transparency.sh"]));
+                }
+            } catch(e) {}
             GLib.spawn_command_line_async(GLib.get_home_dir() + "/.local/bin/47transparency set " + lv);
         });
         glassBox.add(glassSlider.actor, { expand: true });

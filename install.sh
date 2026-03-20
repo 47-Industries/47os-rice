@@ -307,7 +307,7 @@ ok "Done."
 progress "Installing 47 Industries scripts..."
 mkdir -p "$HOME/.local/bin"
 
-for script in 47sound 47transparency 47glass-inject.sh ghost-mode.sh \
+for script in 47sound 47transparency 47glass-inject.sh \
               matrix-47.py saber-drag.sh swoosh-watcher.sh 47sound-inject.sh; do
     if [ -f "$SCRIPT_DIR/scripts/$script" ]; then
         cp "$SCRIPT_DIR/scripts/$script" "$HOME/.local/bin/$script"
@@ -354,7 +354,7 @@ progress "Installing custom Cinnamon applets..."
 APPLET_DIR="$HOME/.local/share/cinnamon/applets"
 mkdir -p "$APPLET_DIR"
 
-for applet in ghost-mode@custom brightness@custom fake-battery@custom \
+for applet in brightness@custom fake-battery@custom \
               fake-wifi@custom 47sound@custom vpn-toggle@custom sound@cinnamon.org; do
     if [ -d "$SCRIPT_DIR/applets/$applet" ]; then
         cp -r "$SCRIPT_DIR/applets/$applet" "$APPLET_DIR/"
@@ -366,13 +366,20 @@ done
 ok "6 custom applets installed."
 
 # ============================================================
-# STEP 8: Install Cinnamon extension (wobbly windows)
+# STEP 8: Install Cinnamon extensions
 # ============================================================
 progress "Installing Cinnamon extensions..."
-EXT_DIR="$HOME/.local/share/cinnamon/extensions/compiz-windows-effect@hermes83.github.com"
-mkdir -p "$EXT_DIR"
-cp -r "$SCRIPT_DIR/extensions/"* "$EXT_DIR/" 2>/dev/null
-ok "Compiz wobbly windows effect installed."
+EXT_BASE="$HOME/.local/share/cinnamon/extensions"
+mkdir -p "$EXT_BASE"
+
+for ext in compiz-windows-effect@hermes83.github.com CinnamonBurnMyWindows@klangman CinnamonMagicLamp@klangman; do
+    if [ -d "$SCRIPT_DIR/extensions/$ext" ]; then
+        cp -r "$SCRIPT_DIR/extensions/$ext" "$EXT_BASE/"
+        ok "Installed extension: $ext"
+    else
+        warn "Extension not found: $ext"
+    fi
+done
 
 # ============================================================
 # STEP 9: Deploy config files
@@ -502,8 +509,39 @@ sudo cp "$SCRIPT_DIR/system/lightdm/slick-greeter.conf" /etc/lightdm/slick-greet
 
 # Cursor on login screen
 sudo mkdir -p /etc/lightdm/lightdm.conf.d
-echo -e "[SeatDefaults]\ncursor-theme=WhiteSur-cursors\ncursor-theme-size=24" | \
-    sudo tee /etc/lightdm/lightdm.conf.d/51-cursor.conf > /dev/null 2>/dev/null
+sudo cp "$SCRIPT_DIR/system/lightdm/51-cursor.conf" /etc/lightdm/lightdm.conf.d/ 2>/dev/null
+
+# Custom macOS-style login screen (web-greeter + 47-macos theme)
+if [ -d "$SCRIPT_DIR/system/web-greeter/themes/47-macos" ]; then
+    # Install web-greeter if not already installed
+    if ! command -v web-greeter &>/dev/null; then
+        progress "Installing web-greeter for custom login screen..."
+        # Try apt first (some distros package it)
+        sudo apt-get install -y web-greeter 2>/dev/null || \
+        sudo apt-get install -y nody-greeter 2>/dev/null || \
+        warn "web-greeter not available via apt — install manually from https://github.com/JezerM/web-greeter"
+    fi
+
+    if command -v web-greeter &>/dev/null; then
+        # Install the 47-macos theme
+        sudo mkdir -p /usr/share/web-greeter/themes
+        sudo cp -r "$SCRIPT_DIR/system/web-greeter/themes/47-macos" /usr/share/web-greeter/themes/
+        ok "47-macos login theme installed."
+
+        # Install web-greeter config
+        if [ -f /etc/lightdm/web-greeter.yml ]; then
+            sudo cp /etc/lightdm/web-greeter.yml "$BACKUP_DIR/web-greeter.yml.bak"
+        fi
+        sudo cp "$SCRIPT_DIR/system/lightdm/web-greeter.yml" /etc/lightdm/web-greeter.yml 2>/dev/null
+
+        # Set web-greeter as the active greeter
+        if [ -f /etc/lightdm/lightdm.conf.d/50-greeter.conf ]; then
+            sudo cp /etc/lightdm/lightdm.conf.d/50-greeter.conf "$BACKUP_DIR/50-greeter.conf.bak"
+        fi
+        sudo cp "$SCRIPT_DIR/system/lightdm/50-greeter.conf" /etc/lightdm/lightdm.conf.d/ 2>/dev/null
+        ok "Custom macOS login screen configured."
+    fi
+fi
 
 # Plymouth boot splash (47 logo on boot)
 if [ -d "$SCRIPT_DIR/system/plymouth/47-logo" ]; then

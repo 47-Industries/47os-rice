@@ -5,11 +5,17 @@ panels-enabled=['1:0:top']
 panels-height=['1:28']
 panel-zone-icon-sizes='[{"panelId": 1, "left": 22, "center": 0, "right": 24}]'
 panel-zone-symbolic-icon-sizes='[{"panelId": 1, "left": 28, "center": 28, "right": 16}]'
-enabled-applets=['panel1:left:0:menu@cinnamon.org:0', 'panel1:right:0:systray@cinnamon.org:3', 'panel1:right:1:notifications@cinnamon.org:5', 'panel1:right:2:keyboard@cinnamon.org:8', 'panel1:right:3:ghost-mode@custom:18', 'panel1:right:4:brightness@custom:20', 'panel1:right:5:fake-wifi@custom:17', 'panel1:right:6:sound@cinnamon.org:11', 'panel1:right:7:fake-battery@custom:16', 'panel1:right:8:calendar@cinnamon.org:13']
+enabled-applets=['panel1:left:0:menu@cinnamon.org:0', 'panel1:right:0:systray@cinnamon.org:3', 'panel1:right:1:notifications@cinnamon.org:5', 'panel1:right:2:keyboard@cinnamon.org:8', 'panel1:right:3:brightness@custom:20', 'panel1:right:4:fake-wifi@custom:17', 'panel1:right:5:sound@cinnamon.org:11', 'panel1:right:6:fake-battery@custom:16', 'panel1:right:7:calendar@cinnamon.org:13']
 panel-scale-text-icons=true
-startup-animation=false
+startup-animation=true
 enable-vfade=false
-window-effect-speed=2
+desktop-effects-workspace=true
+desktop-effects=true
+desktop-effects-map='move'
+desktop-effects-close='scale'
+desktop-effects-minimize='traditional'
+window-effect-speed=1
+enabled-extensions=['compiz-windows-effect@hermes83.github.com', 'CinnamonBurnMyWindows@klangman', 'CinnamonMagicLamp@klangman']
 
 [org/cinnamon/theme]
 name='WhiteSur-Dark'

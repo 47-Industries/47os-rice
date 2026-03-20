@@ -142,6 +142,17 @@ else
     echo -e "  ${YELLOW}No login screen backup found. You may need to reconfigure manually.${RESET}"
 fi
 
+# Restore web-greeter config
+if [ -f "$BACKUP_DIR/web-greeter.yml.bak" ]; then
+    sudo cp "$BACKUP_DIR/web-greeter.yml.bak" /etc/lightdm/web-greeter.yml
+fi
+if [ -f "$BACKUP_DIR/50-greeter.conf.bak" ]; then
+    sudo cp "$BACKUP_DIR/50-greeter.conf.bak" /etc/lightdm/lightdm.conf.d/50-greeter.conf
+else
+    sudo rm -f /etc/lightdm/lightdm.conf.d/50-greeter.conf 2>/dev/null
+fi
+sudo rm -rf /usr/share/web-greeter/themes/47-macos 2>/dev/null
+
 # Remove theme enforcement
 sudo rm -f /etc/xdg/autostart/47os-force-theme.desktop 2>/dev/null
 sudo rm -f /usr/local/bin/47os-force-theme.sh 2>/dev/null
@@ -159,7 +170,7 @@ echo -e "  ${GREEN}System overrides removed.${RESET}"
 echo -e "\n${CYAN}[6/7]${WHITE} Removing 47OS scripts and sounds...${RESET}"
 
 # Scripts in ~/.local/bin
-for script in 47sound 47transparency 47glass-inject.sh ghost-mode.sh \
+for script in 47sound 47transparency 47glass-inject.sh \
               matrix-47.py saber-drag.sh swoosh-watcher.sh 47sound-inject.sh; do
     rm -f "$HOME/.local/bin/$script"
 done
@@ -175,11 +186,22 @@ echo -e "  ${GREEN}Done.${RESET}"
 # ============================================================
 # 7. Remove custom applets
 # ============================================================
-echo -e "\n${CYAN}[7/7]${WHITE} Removing custom Cinnamon applets...${RESET}"
-for applet in ghost-mode@custom brightness@custom fake-battery@custom \
+echo -e "\n${CYAN}[7/8]${WHITE} Removing custom Cinnamon applets...${RESET}"
+for applet in brightness@custom fake-battery@custom \
               fake-wifi@custom 47sound@custom vpn-toggle@custom; do
     rm -rf "$HOME/.local/share/cinnamon/applets/$applet"
 done
+echo -e "  ${GREEN}Done.${RESET}"
+
+# ============================================================
+# 8. Remove Cinnamon extensions
+# ============================================================
+echo -e "\n${CYAN}[8/8]${WHITE} Removing Cinnamon extensions...${RESET}"
+for ext in compiz-windows-effect@hermes83.github.com CinnamonBurnMyWindows@klangman CinnamonMagicLamp@klangman; do
+    rm -rf "$HOME/.local/share/cinnamon/extensions/$ext"
+done
+rm -rf "$HOME/.config/cinnamon/spices/CinnamonBurnMyWindows@klangman" 2>/dev/null
+rm -rf "$HOME/.config/cinnamon/spices/CinnamonMagicLamp@klangman" 2>/dev/null
 echo -e "  ${GREEN}Done.${RESET}"
 
 # ============================================================

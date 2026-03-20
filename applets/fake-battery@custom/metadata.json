@@ -1,7 +1,7 @@
 {
     "uuid": "fake-battery@custom",
-    "name": "Battery Status (Always On)",
-    "description": "Shows a battery-full icon for desktop PCs",
-    "version": "1.0",
+    "name": "Battery Status",
+    "description": "Smart battery applet — shows real battery info on laptops, AC power on desktops",
+    "version": "2.0",
     "cinnamon-version": ["5.0"]
 }

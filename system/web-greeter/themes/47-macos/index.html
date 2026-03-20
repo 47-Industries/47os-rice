@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+/* WhiteSur cursor overrides — force cursors via embedded PNGs so X11/QtWebEngine cannot revert to the circle */
+*, *::before, *::after {
+    cursor: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAACQElEQVR4nO2WvcuSYRTGn/JVyzLN/P7+/v4CbRM3B6cGFRL6A4L6K3QURFARdQlyc1AaHBQjGwKzQYUcAjcXB0HIudM5jwlv0NDwPM/w4gXX8Oit1+8+97mPMsxVV/1Dn1GLxeKbRqMx4uN9wQEA1W63Yb1ebxDChi+JBAdIJBLQ6XRgs9n80Ov1LkEhLgBkqsRqtRK2EgQQj8chFotBNBqFVqt1qYSTEaInCCASiUA4HIZgMAiBQAAajQZbCbVabeUdggAo1O/3g8/nA4/HA263G+r1ujAQBOD1etlQl8sFTqcT7HY72Gw2qNVq/EMQAIU6HA422Gq1gsViAZPJBEajEarVKr8QBEC7pVCz2cwGGwwGwCYErVYLeCOgUqnAcrn8LpfLdZxDEMBltxSq0+lY93o9GA6HrAeDAZxOJ0ilUi/wIw/Q9zgFuOwWAyCbzYJKpYJutwuj0ehToVB4i36TyWRe4XITWsY5AJ4v24Tb7ZbdrUKhgGQyCbvdbi8Wi2kePEMr0I/RN5yF3wYYj8fQbDbfHw6Hn3QVZTIZzGYzyOfzr3HZI+Y8GflpQpp+WO6ZSCTyIMS7crkMEokEisUiTKfTL7jsKcPXaJ7P51+pw5VKZRwf9aFQ6DmWHqRSKQtxPB5/4ZH48D0JLwAoMVqN1jLnBhNNJpOPpVIJcrkc7Pf7I4LQL+RDhsvmuyX60ps/IOwZ40xw9Pv9D1T+dDr9kjl3P7fX7z+gaMeXyjxhhP6jwvxdGcHDr7rqqrup3yOCKvtWTVa7AAAAAElFTkSuQmCC) 6 5, default !important;
+}
+a, a *, button, button *, [role="button"], [role="button"] *,
+input[type="submit"], input[type="button"], .submit-btn, .power-btn, .power-btn * {
+    cursor: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAACo0lEQVR4nO2VS4hSURjHb9rY2IMMfOSjiOyx9BFBuxjaDC5mERnFMKAxYI6Gm9q4cVq2UAJ3LgRFah4b3Yhom4YhEATfMIkI2lCNE7jQmUrIr+87PmCCoLiOK//w456r5577v//vPDhuqqmm+j+dRB4jjxDhpF8uQJasVissLy8Dtp9P2sQpxJtKpaDb7YJCofiM96cnaUCMrIbDYSAtLi5SCre4fjInJmFgFnngcrmYgUAgQAY2kTfIS0SLOJD5gamxawa5ajAYfpKBdDoNGo0GGo0GkCm5XN6ORCKwsLDQw35O5ClymRtDOvQ195AXyG2BQJDe39+HTqcDRqORpbG9vQ1ms5m1k8kkqNVqCAaDIBQK3+MzIj4vJ/d35+bmeuvr66DX6w/xvhCPx9nLtra22PXg4AAKhcKoPfwdjXzB/uf4pECxO3w+Hxuw3W6DTqcDr9cL/yKlUkkGJHwN3JRIJJ9qtRobtFqtAi1FUrPZhGg0Cnt7e7CxscEMhkIh9l+v1wOxWPyRrwHBYICHGP8P1JEvzOVy4HQ6WfwrKytQr9fZ8iTt7u7SKnmHnOdjYJiCCnnl8XiOGMjn8+BwOKBYLILdbj9igMqGz6wiZ/kaoIdpE7ouEokK2Wx2ZGD44lKpBDabbWSAlqZMJqP63+D6OyhvUSkoynmVSvVtZ2eHGWi1WpBIJNiVVgatgFgsBiaT6Rf2XUIucGPclOgklCP3pVLp13K5PEqCJpzf74dKpcImJPb5gFzi+uUbq2jAi4jDYrFAJpNhuN1uNuG0Wu33tbU1aic4nrP/b6IBqaZ0CNEZsDngNXIHeYK8RZ4hZ47DAIlqSrvbFa4/ya4haq5fbyoRRS/ljiH+P01QErOD68zgN+GgTfNlIkf0VFNNxVu/AY2Ot0fUHQQWAAAAAElFTkSuQmCC) 13 8, pointer !important;
+}
+input[type="text"], input[type="password"], input[type="email"],
+input[type="search"], textarea, [contenteditable="true"] {
+    cursor: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABS0lEQVR4nO2WT0vDQBDFp39MbQVJ0KAtpB6Eih7Eg5cqnjwJfuDc+gFCDz30awRaIdf2PbPVYVGk0AkI++AH3RnIvtnJZioSFPQP1VK0FTputznUTZLkAgx3xHF8iVwfRKBjaaJTFMW8qqqND+IL5FMwcCYOLlYVbaAsyz5J0/TrN4X8DTiX+iQOfgp8YC/P81lZlituSAMU1h+IF8g/ALajZ2WAlbHCW20A63fwwrgYngDF3rLHQ8/AK7hnXAzfAYpVdcGpZ4DVXzPu8qZXkXe+7xl4AmOpr2LbcnOq9YcB0+qDgWCA4ls+8Aw8gyupvwGmt4DTMMIEHGsDmIZv8v0dOJKmpiENqGm4RH4ETqSpaahxrbiTpqYhWHMK7mhyGp6BCXgEU6lvwNStJy5vPg25CfudKUYubj4N+XBWePwD5v8JtZHfCAraS1tyCO6xmAIRTAAAAABJRU5ErkJggg==) 16 16, text !important;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    font-family: -apple-system, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+    color: white;
+    opacity: 1;
+    transition: opacity 1s ease;
+}
+
+html.session_starting { opacity: 0; }
+
+/* Fullscreen CRISP background */
+.background {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: url('bg.jpg') center/cover no-repeat;
+    z-index: -1;
+}
+
+/* Fallback — BLACK to prevent any color flash */
+.background-fallback {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: #000;
+    z-index: -2;
+}
+
+/* Clock area — top center, date ABOVE time (macOS style) */
+.clock {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    text-align: center;
+    padding-top: 72px;
+}
+
+.clock-date {
+    font-size: 20px;
+    font-weight: 500;
+    letter-spacing: 0.3px;
+    text-shadow: 0 1px 6px rgba(0,0,0,0.5);
+    margin-bottom: 4px;
+}
+
+.clock-time {
+    font-size: 84px;
+    font-weight: 700;
+    letter-spacing: -2px;
+    line-height: 1;
+    text-shadow: 0 2px 12px rgba(0,0,0,0.5);
+}
+
+/* Login container — positioned in lower portion like real macOS */
+.login-container {
+    position: fixed;
+    bottom: 18%;
+    left: 0;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* Circular avatar — black background for 47 logo */
+.avatar {
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    background: #000 center/cover no-repeat;
+    border: 2px solid rgba(255,255,255,0.35);
+    box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+    margin-bottom: 8px;
+}
+
+/* Username */
+.username {
+    font-size: 15px;
+    font-weight: 500;
+    letter-spacing: 0.2px;
+    margin-bottom: 10px;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.5);
+}
+
+/* Password input — macOS frosted glass pill */
+.password-wrap {
+    position: relative;
+    width: 200px;
+    margin-bottom: 8px;
+}
+
+.password-input {
+    width: 100%;
+    padding: 8px 36px 8px 14px;
+    border-radius: 18px;
+    border: 1px solid rgba(255,255,255,0.2);
+    background: rgba(255,255,255,0.15);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    color: white;
+    font-size: 14px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.2s, background 0.2s;
+}
+
+.password-input::placeholder {
+    color: rgba(255,255,255,0.45);
+    font-size: 13px;
+}
+
+.password-input:focus {
+    border-color: rgba(255,255,255,0.4);
+    background: rgba(255,255,255,0.22);
+}
+
+/* Arrow button inside input */
+.submit-btn {
+    position: absolute;
+    right: 5px; top: 50%;
+    transform: translateY(-50%);
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255,255,255,0.2);
+    color: white;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+}
+
+.submit-btn:hover { background: rgba(255,255,255,0.35); }
+
+/* Error/message */
+.message {
+    font-size: 12px;
+    color: #ff6b6b;
+    height: 18px;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+    margin-bottom: 4px;
+}
+
+/* Power buttons — bottom-right, always visible */
+.bottom-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    display: flex;
+    justify-content: flex-end;
+    gap: 20px;
+    padding: 14px 30px;
+    opacity: 0.5;
+    transition: opacity 0.3s ease;
+}
+
+.bottom-bar:hover { opacity: 1; }
+
+.power-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    background: none;
+    border: none;
+    color: white;
+    font-family: inherit;
+    transition: transform 0.2s ease, filter 0.2s ease;
+}
+
+.power-btn:hover {
+    transform: scale(1.25);
+    filter: brightness(1.4) drop-shadow(0 0 8px rgba(255,255,255,0.4));
+}
+
+.power-icon {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.12);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    transition: background 0.2s ease;
+}
+
+.power-btn:hover .power-icon {
+    background: rgba(255,255,255,0.25);
+}
+
+.power-label {
+    font-size: 10px;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+}
+
+/* Shake animation */
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20%, 60% { transform: translateX(-10px); }
+    40%, 80% { transform: translateX(10px); }
+}
+
+/* Debug overlay */
+#debug {
+    display: none;
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    background: rgba(0,0,0,0.8);
+    color: #ff4444;
+    font-size: 11px;
+    padding: 8px;
+    max-width: 400px;
+    word-wrap: break-word;
+    z-index: 99998;
+    border-radius: 4px;
+}
+</style>
+</head>
+<body>
+
+<div class="background-fallback"></div>
+<div class="background"></div>
+
+<!-- Login sound -->
+<audio id="login-sound" preload="auto" src="login.mp3"></audio>
+
+<!-- Clock: date on top, big time below -->
+<div class="clock">
+    <div class="clock-date" id="date"></div>
+    <div class="clock-time" id="time"></div>
+</div>
+
+<!-- Login: lower portion of screen -->
+<div class="login-container">
+    <div class="avatar" id="avatar"></div>
+    <div class="username" id="username">User</div>
+    <div class="message" id="message"></div>
+    <form id="login-form">
+        <div class="password-wrap" id="password-wrap">
+            <input class="password-input" id="entry" type="password" placeholder="Enter Password" autocomplete="off" autofocus />
+            <button type="submit" class="submit-btn">&#x279C;</button>
+        </div>
+    </form>
+</div>
+
+<!-- Power buttons — bottom-right -->
+<div class="bottom-bar">
+    <button class="power-btn" id="btn-sleep">
+        <div class="power-icon">&#9790;</div>
+        <span class="power-label">Sleep</span>
+    </button>
+    <button class="power-btn" id="btn-restart">
+        <div class="power-icon">&#8635;</div>
+        <span class="power-label">Restart</span>
+    </button>
+    <button class="power-btn" id="btn-shutdown">
+        <div class="power-icon">&#9211;</div>
+        <span class="power-label">Shut Down</span>
+    </button>
+</div>
+
+<div id="debug"></div>
+
+<script>
+window.onerror = function(msg, url, line) {
+    var d = document.getElementById('debug');
+    if (d) { d.style.display = 'block'; d.textContent = 'Error: ' + msg + ' (line ' + line + ')'; }
+    return false;
+};
+
+// Catch unhandled promise rejections (like audio play failures)
+window.addEventListener('unhandledrejection', function(e) { e.preventDefault(); });
+
+// Clock — date ABOVE time
+function updateClock() {
+    try {
+        var now = new Date();
+        var h = now.getHours();
+        var m = now.getMinutes();
+        h = h % 12 || 12;
+        document.getElementById('time').textContent = h + ':' + String(m).padStart(2, '0');
+        var days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+        var months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+        document.getElementById('date').textContent = days[now.getDay()] + ', ' + months[now.getMonth()] + ' ' + now.getDate();
+    } catch(e) {}
+}
+updateClock();
+setInterval(updateClock, 10000);
+
+// LightDM Callbacks
+window.show_prompt = function(text, type) {
+    var entry = document.getElementById('entry');
+    entry.value = '';
+    if (type === 0 || type === 'text') {
+        entry.type = 'text';
+        entry.placeholder = 'Username';
+    } else {
+        entry.type = 'password';
+        entry.placeholder = 'Enter Password';
+    }
+    entry.focus();
+};
+
+window.show_message = function(text, type) {
+    if (!text || text.length === 0) return;
+    var msg = document.getElementById('message');
+    if (type === 'error' || type === 1) {
+        msg.style.color = '#ff6b6b';
+    } else {
+        msg.style.color = 'rgba(255,255,255,0.7)';
+    }
+    msg.textContent = text;
+};
+
+window.authentication_complete = function() {
+    try {
+        if (window.lightdm.is_authenticated) {
+
+            var session = window.lightdm.default_session;
+            setTimeout(function() {
+                document.documentElement.addEventListener('transitionend', function() {
+                    try { window.lightdm.start_session(session); } catch(e) {}
+                });
+                document.documentElement.className = 'session_starting';
+                // Fallback: if transitionend never fires, start session after 2s
+                setTimeout(function() { try { window.lightdm.start_session(session); } catch(e) {} }, 2000);
+            }, 300);
+        } else {
+            document.getElementById('message').textContent = 'Incorrect password. Try again.';
+            document.getElementById('entry').value = '';
+            document.getElementById('entry').focus();
+            var wrap = document.getElementById('password-wrap');
+            wrap.style.animation = 'shake 0.4s ease';
+            setTimeout(function() {
+                wrap.style.animation = '';
+                start_authentication();
+            }, 1000);
+        }
+    } catch(e) {
+        var d = document.getElementById('debug');
+        if (d) { d.style.display = 'block'; d.textContent = 'Auth error: ' + e.message; }
+    }
+};
+
+window.autologin_timer_expired = function() {};
+
+window.handle_input = function() {
+
+    document.getElementById('message').textContent = '';
+    var entry = document.getElementById('entry');
+    window.lightdm.respond(entry.value);
+};
+
+window.start_authentication = function() {
+    try {
+        document.getElementById('message').textContent = '';
+        var users = window.lightdm.users;
+        if (users && users.length > 0) {
+            var user = users[0];
+            document.getElementById('username').textContent = user.display_name || user.username || 'User';
+            if (user.image) {
+                document.getElementById('avatar').style.backgroundImage = "url('" + user.image + "')";
+            }
+            window.lightdm.authenticate(user.username);
+        } else {
+            window.lightdm.authenticate(null);
+        }
+    } catch(e) {
+        var d = document.getElementById('debug');
+        if (d) { d.style.display = 'block'; d.textContent = 'Init error: ' + e.message; }
+    }
+};
+
+// Form handler
+document.getElementById('login-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    handle_input();
+});
+
+// Power buttons
+document.getElementById('btn-sleep').addEventListener('click', function() {
+    try { if (window.lightdm.can_suspend) window.lightdm.suspend(); } catch(e) {}
+});
+document.getElementById('btn-restart').addEventListener('click', function() {
+    try { if (window.lightdm.can_restart) window.lightdm.restart(); } catch(e) {}
+});
+document.getElementById('btn-shutdown').addEventListener('click', function() {
+    try { if (window.lightdm.can_shutdown) window.lightdm.shutdown(); } catch(e) {}
+});
+
+// Initialize
+window.addEventListener('GreeterReady', function() {
+    try {
+        window.lightdm.show_message.connect(show_message);
+        window.lightdm.show_prompt.connect(show_prompt);
+        window.lightdm.authentication_complete.connect(authentication_complete);
+        window.lightdm.autologin_timer_expired.connect(autologin_timer_expired);
+        start_authentication();
+        // Play startup sound when login screen appears
+        try {
+            var snd = document.getElementById('login-sound');
+            snd.play().catch(function(){});
+        } catch(e2) {}
+    } catch(e) {
+        var d = document.getElementById('debug');
+        if (d) { d.style.display = 'block'; d.textContent = 'GreeterReady error: ' + e.message; }
+        try { start_authentication(); } catch(e2) {}
+    }
+});
+</script>
+
+</body>
+</html>
