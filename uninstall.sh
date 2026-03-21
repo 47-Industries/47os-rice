@@ -43,6 +43,7 @@ echo "  - Remove 47OS autostart entries"
 echo "  - Remove 47OS panel applets"
 echo "  - Restore your login screen config"
 echo "  - Remove 47OS scripts and sounds"
+echo "  - Restore default boot splash and GRUB settings"
 echo ""
 echo "It will NOT remove:"
 echo "  - WhiteSur theme/icons (they don't hurt anything)"
@@ -56,7 +57,7 @@ echo ""
 # ============================================================
 # 1. Restore gsettings
 # ============================================================
-echo -e "${CYAN}[1/7]${WHITE} Restoring Cinnamon settings...${RESET}"
+echo -e "${CYAN}[1/10]${WHITE} Restoring Cinnamon settings...${RESET}"
 if [ -f "$BACKUP_DIR/gsettings-restore.sh" ]; then
     bash "$BACKUP_DIR/gsettings-restore.sh" 2>/dev/null
     echo -e "  ${GREEN}Settings restored.${RESET}"
@@ -67,7 +68,7 @@ fi
 # ============================================================
 # 2. Remove 47OS keybindings
 # ============================================================
-echo -e "\n${CYAN}[2/7]${WHITE} Removing 47OS keybindings...${RESET}"
+echo -e "\n${CYAN}[2/10]${WHITE} Removing 47OS keybindings...${RESET}"
 if [ -f "$BACKUP_DIR/keybindings-dconf.dump" ]; then
     dconf reset -f /org/cinnamon/desktop/keybindings/custom-keybindings/ 2>/dev/null
     dconf load /org/cinnamon/desktop/keybindings/ < "$BACKUP_DIR/keybindings-dconf.dump" 2>/dev/null
@@ -91,7 +92,7 @@ fi
 # ============================================================
 # 3. Remove 47OS autostart entries
 # ============================================================
-echo -e "\n${CYAN}[3/7]${WHITE} Removing 47OS autostart entries...${RESET}"
+echo -e "\n${CYAN}[3/10]${WHITE} Removing 47OS autostart entries...${RESET}"
 for f in 47glass-inject 47sound-inject saber-drag swoosh-watcher \
          window-close-sound window-state-sound; do
     rm -f "$HOME/.config/autostart/${f}.desktop"
@@ -101,7 +102,7 @@ echo -e "  ${GREEN}Done.${RESET}"
 # ============================================================
 # 4. Restore backed-up config files
 # ============================================================
-echo -e "\n${CYAN}[4/7]${WHITE} Restoring config files...${RESET}"
+echo -e "\n${CYAN}[4/10]${WHITE} Restoring config files...${RESET}"
 
 # Restore .bashrc — remove the 47OS lines
 if [ -f "$BACKUP_DIR/.bashrc" ]; then
@@ -134,12 +135,20 @@ echo -e "  ${GREEN}Done.${RESET}"
 # ============================================================
 # 5. Restore login screen
 # ============================================================
-echo -e "\n${CYAN}[5/7]${WHITE} Restoring login screen...${RESET}"
+echo -e "\n${CYAN}[5/10]${WHITE} Restoring login screen...${RESET}"
 if [ -f "$BACKUP_DIR/slick-greeter.conf.bak" ]; then
     sudo cp "$BACKUP_DIR/slick-greeter.conf.bak" /etc/lightdm/slick-greeter.conf
     echo -e "  ${GREEN}Login screen restored.${RESET}"
 else
     echo -e "  ${YELLOW}No login screen backup found. You may need to reconfigure manually.${RESET}"
+fi
+
+# Restore main lightdm.conf (web-greeter → slick-greeter)
+if [ -f "$BACKUP_DIR/lightdm.conf.bak" ]; then
+    sudo cp "$BACKUP_DIR/lightdm.conf.bak" /etc/lightdm/lightdm.conf
+elif [ -f /etc/lightdm/lightdm.conf ]; then
+    sudo sed -i 's/^greeter-session=web-greeter/greeter-session=slick-greeter/' /etc/lightdm/lightdm.conf
+    sudo sed -i 's/^greeter-session=nody-greeter/greeter-session=slick-greeter/' /etc/lightdm/lightdm.conf
 fi
 
 # Restore web-greeter config
@@ -152,6 +161,7 @@ else
     sudo rm -f /etc/lightdm/lightdm.conf.d/50-greeter.conf 2>/dev/null
 fi
 sudo rm -rf /usr/share/web-greeter/themes/47-macos 2>/dev/null
+sudo rm -rf /usr/share/nody-greeter/themes/47-macos 2>/dev/null
 
 # Remove theme enforcement
 sudo rm -f /etc/xdg/autostart/47os-force-theme.desktop 2>/dev/null
@@ -167,7 +177,7 @@ echo -e "  ${GREEN}System overrides removed.${RESET}"
 # ============================================================
 # 6. Remove 47OS scripts and data
 # ============================================================
-echo -e "\n${CYAN}[6/7]${WHITE} Removing 47OS scripts and sounds...${RESET}"
+echo -e "\n${CYAN}[6/10]${WHITE} Removing 47OS scripts and sounds...${RESET}"
 
 # Scripts in ~/.local/bin
 for script in 47sound 47transparency 47glass-inject.sh \
@@ -196,7 +206,7 @@ echo -e "  ${GREEN}Done.${RESET}"
 # ============================================================
 # 7. Remove custom applets
 # ============================================================
-echo -e "\n${CYAN}[7/8]${WHITE} Removing custom Cinnamon applets...${RESET}"
+echo -e "\n${CYAN}[7/10]${WHITE} Removing custom Cinnamon applets...${RESET}"
 for applet in brightness@custom fake-battery@custom \
               fake-wifi@custom 47sound@custom vpn-toggle@custom; do
     rm -rf "$HOME/.local/share/cinnamon/applets/$applet"
@@ -206,13 +216,44 @@ echo -e "  ${GREEN}Done.${RESET}"
 # ============================================================
 # 8. Remove Cinnamon extensions
 # ============================================================
-echo -e "\n${CYAN}[8/8]${WHITE} Removing Cinnamon extensions...${RESET}"
+echo -e "\n${CYAN}[8/10]${WHITE} Removing Cinnamon extensions...${RESET}"
 for ext in compiz-windows-effect@hermes83.github.com CinnamonBurnMyWindows@klangman CinnamonMagicLamp@klangman; do
     rm -rf "$HOME/.local/share/cinnamon/extensions/$ext"
 done
 rm -rf "$HOME/.config/cinnamon/spices/CinnamonBurnMyWindows@klangman" 2>/dev/null
 rm -rf "$HOME/.config/cinnamon/spices/CinnamonMagicLamp@klangman" 2>/dev/null
 echo -e "  ${GREEN}Done.${RESET}"
+
+# ============================================================
+# 9. Restore Plymouth boot splash
+# ============================================================
+echo -e "\n${CYAN}[9/10]${WHITE} Restoring default boot splash...${RESET}"
+if [ -d /usr/share/plymouth/themes/47-logo ]; then
+    sudo update-alternatives --remove default.plymouth \
+        /usr/share/plymouth/themes/47-logo/47-logo.plymouth 2>/dev/null
+    sudo rm -rf /usr/share/plymouth/themes/47-logo
+    sudo update-initramfs -u 2>/dev/null
+    echo -e "  ${GREEN}Plymouth restored to default.${RESET}"
+else
+    echo -e "  ${YELLOW}47-logo Plymouth theme not found, skipping.${RESET}"
+fi
+
+# ============================================================
+# 10. Restore GRUB defaults
+# ============================================================
+echo -e "\n${CYAN}[10/10]${WHITE} Restoring GRUB settings...${RESET}"
+if [ -f "$BACKUP_DIR/grub.default.bak" ]; then
+    sudo cp "$BACKUP_DIR/grub.default.bak" /etc/default/grub
+    sudo update-grub 2>/dev/null
+    echo -e "  ${GREEN}GRUB restored from backup.${RESET}"
+else
+    # Restore reasonable defaults
+    sudo sed -i 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=5/' /etc/default/grub 2>/dev/null
+    sudo sed -i 's/^GRUB_TIMEOUT_STYLE=.*/GRUB_TIMEOUT_STYLE=menu/' /etc/default/grub 2>/dev/null
+    sudo sed -i 's/^GRUB_DISTRIBUTOR=.*/GRUB_DISTRIBUTOR="Linux Mint"/' /etc/default/grub 2>/dev/null
+    sudo update-grub 2>/dev/null
+    echo -e "  ${GREEN}GRUB restored to Linux Mint defaults.${RESET}"
+fi
 
 # ============================================================
 # DONE

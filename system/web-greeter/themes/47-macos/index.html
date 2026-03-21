@@ -5,7 +5,7 @@
 <style>
 /* WhiteSur cursor overrides — force cursors via embedded PNGs so X11/QtWebEngine cannot revert to the circle */
 *, *::before, *::after {
-    cursor: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAACQElEQVR4nO2WvcuSYRTGn/JVyzLN/P7+/v4CbRM3B6cGFRL6A4L6K3QURFARdQlyc1AaHBQjGwKzQYUcAjcXB0HIudM5jwlv0NDwPM/w4gXX8Oit1+8+97mPMsxVV/1Dn1GLxeKbRqMx4uN9wQEA1W63Yb1ebxDChi+JBAdIJBLQ6XRgs9n80Ov1LkEhLgBkqsRqtRK2EgQQj8chFotBNBqFVqt1qYSTEaInCCASiUA4HIZgMAiBQAAajQZbCbVabeUdggAo1O/3g8/nA4/HA263G+r1ujAQBOD1etlQl8sFTqcT7HY72Gw2qNVq/EMQAIU6HA422Gq1gsViAZPJBEajEarVKr8QBEC7pVCz2cwGGwwGwCYErVYLeCOgUqnAcrn8LpfLdZxDEMBltxSq0+lY93o9GA6HrAeDAZxOJ0ilUi/wIw/Q9zgFuOwWAyCbzYJKpYJutwuj0ehToVB4i36TyWRe4XITWsY5AJ4v24Tb7ZbdrUKhgGQyCbvdbi8Wi2kePEMr0I/RN5yF3wYYj8fQbDbfHw6Hn3QVZTIZzGYzyOfzr3HZI+Y8GflpQpp+WO6ZSCTyIMS7crkMEokEisUiTKfTL7jsKcPXaJ7P51+pw5VKZRwf9aFQ6DmWHqRSKQtxPB5/4ZH48D0JLwAoMVqN1jLnBhNNJpOPpVIJcrkc7Pf7I4LQL+RDhsvmuyX60ps/IOwZ40xw9Pv9D1T+dDr9kjl3P7fX7z+gaMeXyjxhhP6jwvxdGcHDr7rqqrup3yOCKvtWTVa7AAAAAElFTkSuQmCC) 6 5, default !important;
+    cursor: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAACQElEQVR4nO2WvcuSYRTGn/JVyzLN/P7+/v4CbRM3B6cGFRL6A4L6K3QURFARdQlyc1AaHBQjGwKzQYUcAjcXB0HIudM5jwlv0NDwPM/w4gXX8Oit1+8+97mPMsxVV/1Dn1GLxeKbRqMx4uN9wQEA1W63Yb1ebxDChi+JBAdIJBLQ6XRgs9n80Ov1LkEhLgBkqsRqtRK2EgQQj8chFotBNBqFVqt1qYSTEaInCCASiUA4HIZgMAiBQAAajQZbCbVabeUdggAo1O/3g8/nA4/HA263G+r1ujAQBOD1etlQl8sFTqcT7HY72Gw2qNVq/EMQAIU6HA422Gq1gsViAZPJBEajEarVKr8QBEC7pVCz2cwGGwwGwCYErVYLeCOgUqnAcrn8LpfLdZxDEMBltxSq0+lY93o9GA6HrAeDAZxOJ0ilUi/wIw/Q9zgFuOwWAyCbzYJKpYJutwuj0ehToVB4i36TyWRe4XITWsY5AJ4v24Tb7ZbdrUKhgGQyCbvdbi8Wi2kePEMr0I/RN5yF3wYYj8fQbDbfHw6Hn3QVZTIZzGYzyOfzr3HZI+Y8GflpQpp+WO6ZSCTyIMS7crkMEokEisUiTKfTL7jsKcPXaJ7P51+pw5VKZRwf9aFQ6DmWHqRSKQtxPB5/4ZH48D0JLwAoMVqN1jLnBhNNJpOPpVIJcrkc7Pf7I4LQL+RDhsvmuyX60ps/IOwZ40xw9Pv9D1T+dDr9kjl3P7fX7z+gaMeXyjxhhP6jwvxdGcHDr7rqqdup3yOCKvtWTVa7AAAAAElFTkSuQmCC) 6 5, default !important;
 }
 a, a *, button, button *, [role="button"], [role="button"] *,
 input[type="submit"], input[type="button"], .submit-btn, .power-btn, .power-btn * {
@@ -25,11 +25,12 @@ html, body {
     color: white;
     opacity: 1;
     transition: opacity 1s ease;
+    -webkit-font-smoothing: antialiased;
 }
 
 html.session_starting { opacity: 0; }
 
-/* Fullscreen CRISP background */
+/* Fullscreen background */
 .background {
     position: fixed;
     top: 0; left: 0;
@@ -38,7 +39,7 @@ html.session_starting { opacity: 0; }
     z-index: -1;
 }
 
-/* Fallback — BLACK to prevent any color flash */
+/* Fallback black */
 .background-fallback {
     position: fixed;
     top: 0; left: 0;
@@ -47,112 +48,135 @@ html.session_starting { opacity: 0; }
     z-index: -2;
 }
 
-/* Clock area — top center, date ABOVE time (macOS style) */
+/* ─── Clock ─── top center, macOS Sequoia style: big time, date below */
 .clock {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     text-align: center;
-    padding-top: 72px;
-}
-
-.clock-date {
-    font-size: 20px;
-    font-weight: 500;
-    letter-spacing: 0.3px;
-    text-shadow: 0 1px 6px rgba(0,0,0,0.5);
-    margin-bottom: 4px;
+    padding-top: 68px;
 }
 
 .clock-time {
-    font-size: 84px;
+    font-size: 90px;
     font-weight: 700;
-    letter-spacing: -2px;
+    letter-spacing: -1.5px;
     line-height: 1;
-    text-shadow: 0 2px 12px rgba(0,0,0,0.5);
+    text-shadow: 0 1px 8px rgba(0,0,0,0.35);
 }
 
-/* Login container — positioned in lower portion like real macOS */
+.clock-date {
+    font-size: 22px;
+    font-weight: 500;
+    letter-spacing: 0.3px;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.35);
+    margin-top: 8px;
+}
+
+/* ─── Login container ─── centered, macOS Sequoia lock screen position */
 .login-container {
     position: fixed;
-    bottom: 18%;
-    left: 0;
-    width: 100%;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -10%);
     display: flex;
     flex-direction: column;
     align-items: center;
 }
 
-/* Circular avatar — black background for 47 logo */
+/* Circular avatar — macOS uses ~160px on lock screen */
 .avatar {
-    width: 64px; height: 64px;
+    width: 130px; height: 130px;
     border-radius: 50%;
-    background: #000 center/cover no-repeat;
-    border: 2px solid rgba(255,255,255,0.35);
-    box-shadow: 0 2px 12px rgba(0,0,0,0.3);
-    margin-bottom: 8px;
+    background: #000000 center/cover no-repeat;
+    border: 3px solid rgba(255,255,255,0.25);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.35);
+    margin-bottom: 12px;
+    overflow: hidden;
 }
 
 /* Username */
 .username {
-    font-size: 15px;
+    font-size: 17px;
     font-weight: 500;
-    letter-spacing: 0.2px;
-    margin-bottom: 10px;
-    text-shadow: 0 1px 4px rgba(0,0,0,0.5);
+    letter-spacing: 0.1px;
+    margin-bottom: 14px;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.4);
 }
 
-/* Password input — macOS frosted glass pill */
+/* ─── Password input ─── macOS frosted glass pill */
 .password-wrap {
     position: relative;
-    width: 200px;
+    width: 220px;
     margin-bottom: 8px;
 }
 
 .password-input {
     width: 100%;
-    padding: 8px 36px 8px 14px;
-    border-radius: 18px;
-    border: 1px solid rgba(255,255,255,0.2);
-    background: rgba(255,255,255,0.15);
-    backdrop-filter: blur(20px) saturate(180%);
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    padding: 9px 40px 9px 14px;
+    border-radius: 20px;
+    border: 1.5px solid rgba(255,255,255,0.18);
+    background: rgba(255,255,255,0.12);
+    backdrop-filter: blur(30px) saturate(200%);
+    -webkit-backdrop-filter: blur(30px) saturate(200%);
     color: white;
     font-size: 14px;
     font-family: inherit;
     outline: none;
-    transition: border-color 0.2s, background 0.2s;
+    transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
 }
 
 .password-input::placeholder {
-    color: rgba(255,255,255,0.45);
+    color: rgba(255,255,255,0.4);
     font-size: 13px;
 }
 
 .password-input:focus {
-    border-color: rgba(255,255,255,0.4);
-    background: rgba(255,255,255,0.22);
+    border-color: rgba(255,255,255,0.35);
+    background: rgba(255,255,255,0.18);
+    box-shadow: 0 0 0 3px rgba(255,255,255,0.08);
 }
 
 /* Arrow button inside input */
 .submit-btn {
     position: absolute;
-    right: 5px; top: 50%;
+    right: 6px; top: 50%;
     transform: translateY(-50%);
-    width: 24px; height: 24px;
+    width: 26px; height: 26px;
     border-radius: 50%;
     border: none;
-    background: rgba(255,255,255,0.2);
+    background: rgba(255,255,255,0.18);
     color: white;
-    font-size: 12px;
+    font-size: 13px;
     display: flex;
     align-items: center;
     justify-content: center;
     transition: background 0.2s;
+    opacity: 0;
+    pointer-events: none;
 }
 
-.submit-btn:hover { background: rgba(255,255,255,0.35); }
+.password-input:not(:placeholder-shown) ~ .submit-btn {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.submit-btn:hover { background: rgba(255,255,255,0.3); }
+
+/* Cancel link — appears when typing */
+.cancel-btn {
+    font-size: 13px;
+    color: rgba(255,255,255,0.55);
+    background: none;
+    border: none;
+    font-family: inherit;
+    margin-top: 6px;
+    display: none;
+    transition: color 0.2s;
+}
+
+.cancel-btn:hover { color: rgba(255,255,255,0.85); }
 
 /* Error/message */
 .message {
@@ -160,10 +184,10 @@ html.session_starting { opacity: 0; }
     color: #ff6b6b;
     height: 18px;
     text-shadow: 0 1px 3px rgba(0,0,0,0.5);
-    margin-bottom: 4px;
+    margin-bottom: 2px;
 }
 
-/* Power buttons — bottom-right, always visible */
+/* ─── Power buttons ─── bottom-right, macOS style */
 .bottom-bar {
     position: fixed;
     bottom: 0;
@@ -171,8 +195,8 @@ html.session_starting { opacity: 0; }
     width: 100%;
     display: flex;
     justify-content: flex-end;
-    gap: 20px;
-    padding: 14px 30px;
+    gap: 22px;
+    padding: 18px 32px;
     opacity: 0.5;
     transition: opacity 0.3s ease;
 }
@@ -183,7 +207,7 @@ html.session_starting { opacity: 0; }
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
+    gap: 5px;
     background: none;
     border: none;
     color: white;
@@ -192,14 +216,16 @@ html.session_starting { opacity: 0; }
 }
 
 .power-btn:hover {
-    transform: scale(1.25);
-    filter: brightness(1.4) drop-shadow(0 0 8px rgba(255,255,255,0.4));
+    transform: scale(1.15);
+    filter: brightness(1.3) drop-shadow(0 0 6px rgba(255,255,255,0.3));
 }
 
 .power-icon {
-    width: 32px; height: 32px;
+    width: 34px; height: 34px;
     border-radius: 50%;
-    background: rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.1);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -208,35 +234,36 @@ html.session_starting { opacity: 0; }
 }
 
 .power-btn:hover .power-icon {
-    background: rgba(255,255,255,0.25);
+    background: rgba(255,255,255,0.22);
 }
 
 .power-label {
     font-size: 10px;
-    text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+    font-weight: 500;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.4);
 }
 
-/* Shake animation */
+/* Shake animation for wrong password */
 @keyframes shake {
     0%, 100% { transform: translateX(0); }
     20%, 60% { transform: translateX(-10px); }
     40%, 80% { transform: translateX(10px); }
 }
 
-/* Debug overlay */
+/* Debug overlay (hidden) */
 #debug {
     display: none;
     position: fixed;
     top: 10px;
     left: 10px;
-    background: rgba(0,0,0,0.8);
+    background: rgba(0,0,0,0.85);
     color: #ff4444;
     font-size: 11px;
-    padding: 8px;
+    padding: 8px 12px;
     max-width: 400px;
     word-wrap: break-word;
     z-index: 99998;
-    border-radius: 4px;
+    border-radius: 6px;
 }
 </style>
 </head>
@@ -248,13 +275,13 @@ html.session_starting { opacity: 0; }
 <!-- Login sound -->
 <audio id="login-sound" preload="auto" src="login.mp3"></audio>
 
-<!-- Clock: date on top, big time below -->
+<!-- Clock: big time on top, date below (macOS Sequoia style) -->
 <div class="clock">
-    <div class="clock-date" id="date"></div>
     <div class="clock-time" id="time"></div>
+    <div class="clock-date" id="date"></div>
 </div>
 
-<!-- Login: lower portion of screen -->
+<!-- Login: centered on screen -->
 <div class="login-container">
     <div class="avatar" id="avatar"></div>
     <div class="username" id="username">User</div>
@@ -265,6 +292,7 @@ html.session_starting { opacity: 0; }
             <button type="submit" class="submit-btn">&#x279C;</button>
         </div>
     </form>
+    <button class="cancel-btn" id="cancel-btn">Cancel</button>
 </div>
 
 <!-- Power buttons — bottom-right -->
@@ -292,10 +320,10 @@ window.onerror = function(msg, url, line) {
     return false;
 };
 
-// Catch unhandled promise rejections (like audio play failures)
+// Catch unhandled promise rejections (audio play failures etc.)
 window.addEventListener('unhandledrejection', function(e) { e.preventDefault(); });
 
-// Clock — date ABOVE time
+// Clock — macOS Sequoia: big time on top, date below
 function updateClock() {
     try {
         var now = new Date();
@@ -311,10 +339,26 @@ function updateClock() {
 updateClock();
 setInterval(updateClock, 10000);
 
+// Show/hide cancel button based on input state
+var entryEl = document.getElementById('entry');
+var cancelBtn = document.getElementById('cancel-btn');
+
+entryEl.addEventListener('input', function() {
+    cancelBtn.style.display = this.value.length > 0 ? 'block' : 'none';
+});
+
+cancelBtn.addEventListener('click', function() {
+    entryEl.value = '';
+    cancelBtn.style.display = 'none';
+    document.getElementById('message').textContent = '';
+    entryEl.focus();
+});
+
 // LightDM Callbacks
 window.show_prompt = function(text, type) {
     var entry = document.getElementById('entry');
     entry.value = '';
+    cancelBtn.style.display = 'none';
     if (type === 0 || type === 'text') {
         entry.type = 'text';
         entry.placeholder = 'Username';
@@ -339,20 +383,20 @@ window.show_message = function(text, type) {
 window.authentication_complete = function() {
     try {
         if (window.lightdm.is_authenticated) {
-
             var session = window.lightdm.default_session;
             setTimeout(function() {
                 document.documentElement.addEventListener('transitionend', function() {
                     try { window.lightdm.start_session(session); } catch(e) {}
                 });
                 document.documentElement.className = 'session_starting';
-                // Fallback: if transitionend never fires, start session after 2s
+                // Fallback: if transitionend never fires
                 setTimeout(function() { try { window.lightdm.start_session(session); } catch(e) {} }, 2000);
             }, 300);
         } else {
             document.getElementById('message').textContent = 'Incorrect password. Try again.';
             document.getElementById('entry').value = '';
             document.getElementById('entry').focus();
+            cancelBtn.style.display = 'none';
             var wrap = document.getElementById('password-wrap');
             wrap.style.animation = 'shake 0.4s ease';
             setTimeout(function() {
@@ -369,7 +413,6 @@ window.authentication_complete = function() {
 window.autologin_timer_expired = function() {};
 
 window.handle_input = function() {
-
     document.getElementById('message').textContent = '';
     var entry = document.getElementById('entry');
     window.lightdm.respond(entry.value);
@@ -382,9 +425,8 @@ window.start_authentication = function() {
         if (users && users.length > 0) {
             var user = users[0];
             document.getElementById('username').textContent = user.display_name || user.username || 'User';
-            if (user.image) {
-                document.getElementById('avatar').style.backgroundImage = "url('" + user.image + "')";
-            }
+            var avatarImg = user.image || 'avatar.png';
+            document.getElementById('avatar').style.backgroundImage = "url('" + avatarImg + "')";
             window.lightdm.authenticate(user.username);
         } else {
             window.lightdm.authenticate(null);
@@ -420,7 +462,6 @@ window.addEventListener('GreeterReady', function() {
         window.lightdm.authentication_complete.connect(authentication_complete);
         window.lightdm.autologin_timer_expired.connect(autologin_timer_expired);
         start_authentication();
-        // Play startup sound when login screen appears
         try {
             var snd = document.getElementById('login-sound');
             snd.play().catch(function(){});

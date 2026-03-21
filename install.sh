@@ -380,8 +380,9 @@ cp "$SCRIPT_DIR/assets/images/sequoia-sunrise.jpg" "$HOME/Documents/47industries
 cp "$SCRIPT_DIR/assets/ascii-art.txt" "$HOME/.local/share/47industries/" 2>/dev/null
 cp "$SCRIPT_DIR/config/industries.rasi" "$HOME/Documents/47industries/" 2>/dev/null
 
-# Set 47 logo as user avatar
-cp "$SCRIPT_DIR/assets/images/panel-icon.png" "$HOME/.face" 2>/dev/null
+# Set 47 logo as user avatar (black bg, white logo — looks clean on login screen)
+cp "$SCRIPT_DIR/system/web-greeter/themes/47-macos/avatar.png" "$HOME/.face" 2>/dev/null
+sudo cp "$SCRIPT_DIR/system/web-greeter/themes/47-macos/avatar.png" "/var/lib/AccountsService/icons/$USER" 2>/dev/null
 
 # Ensure ~/.local/bin is in PATH (append only, don't duplicate)
 if ! grep -q '\.local/bin' "$HOME/.bashrc" 2>/dev/null; then
@@ -577,18 +578,49 @@ sudo cp "$SCRIPT_DIR/system/lightdm/51-cursor.conf" /etc/lightdm/lightdm.conf.d/
 # Custom macOS-style login screen (web-greeter + 47-macos theme)
 if [ -d "$SCRIPT_DIR/system/web-greeter/themes/47-macos" ]; then
     # Install web-greeter if not already installed
-    if ! command -v web-greeter &>/dev/null; then
+    if ! command -v web-greeter &>/dev/null && ! command -v nody-greeter &>/dev/null; then
         progress "Installing web-greeter for custom login screen..."
         # Try apt first (some distros package it)
-        sudo apt-get install -y web-greeter 2>/dev/null || \
-        sudo apt-get install -y nody-greeter 2>/dev/null || \
-        warn "web-greeter not available via apt — install manually from https://github.com/JezerM/web-greeter"
+        if ! sudo apt-get install -y web-greeter 2>/dev/null && \
+           ! sudo apt-get install -y nody-greeter 2>/dev/null; then
+            # Download web-greeter .deb from GitHub releases
+            progress "Downloading web-greeter from GitHub..."
+            local WG_DEB="/tmp/web-greeter.deb"
+            local WG_ARCH
+            WG_ARCH=$(dpkg --print-architecture 2>/dev/null || echo "amd64")
+            # Try nody-greeter first (actively maintained fork)
+            if curl -fsSL -o "$WG_DEB" "https://github.com/JezerM/nody-greeter/releases/latest/download/nody-greeter-${WG_ARCH}.deb" 2>/dev/null || \
+               wget -q -O "$WG_DEB" "https://github.com/JezerM/nody-greeter/releases/latest/download/nody-greeter-${WG_ARCH}.deb" 2>/dev/null; then
+                sudo dpkg -i "$WG_DEB" 2>/dev/null
+                sudo apt-get install -f -y 2>/dev/null  # fix any missing deps
+                rm -f "$WG_DEB"
+            # Fallback: try web-greeter .deb
+            elif curl -fsSL -o "$WG_DEB" "https://github.com/JezerM/web-greeter/releases/latest/download/web-greeter-${WG_ARCH}.deb" 2>/dev/null || \
+                 wget -q -O "$WG_DEB" "https://github.com/JezerM/web-greeter/releases/latest/download/web-greeter-${WG_ARCH}.deb" 2>/dev/null; then
+                sudo dpkg -i "$WG_DEB" 2>/dev/null
+                sudo apt-get install -f -y 2>/dev/null
+                rm -f "$WG_DEB"
+            else
+                warn "Could not download web-greeter — login screen will use slick-greeter fallback."
+                warn "To install manually: https://github.com/JezerM/nody-greeter/releases"
+            fi
+        fi
     fi
 
+    # Determine which greeter binary is available
+    local GREETER_BIN=""
     if command -v web-greeter &>/dev/null; then
-        # Install the 47-macos theme
-        sudo mkdir -p /usr/share/web-greeter/themes
-        sudo cp -r "$SCRIPT_DIR/system/web-greeter/themes/47-macos" /usr/share/web-greeter/themes/
+        GREETER_BIN="web-greeter"
+    elif command -v nody-greeter &>/dev/null; then
+        GREETER_BIN="nody-greeter"
+    fi
+
+    if [ -n "$GREETER_BIN" ]; then
+        # Install the 47-macos theme (check both possible theme dirs)
+        local THEME_DIR="/usr/share/web-greeter/themes"
+        [ "$GREETER_BIN" = "nody-greeter" ] && [ -d "/usr/share/nody-greeter/themes" ] && THEME_DIR="/usr/share/nody-greeter/themes"
+        sudo mkdir -p "$THEME_DIR"
+        sudo cp -r "$SCRIPT_DIR/system/web-greeter/themes/47-macos" "$THEME_DIR/"
         ok "47-macos login theme installed."
 
         # Install web-greeter config
@@ -597,12 +629,25 @@ if [ -d "$SCRIPT_DIR/system/web-greeter/themes/47-macos" ]; then
         fi
         sudo cp "$SCRIPT_DIR/system/lightdm/web-greeter.yml" /etc/lightdm/web-greeter.yml 2>/dev/null
 
-        # Set web-greeter as the active greeter
+        # Set greeter as the active greeter
         if [ -f /etc/lightdm/lightdm.conf.d/50-greeter.conf ]; then
             sudo cp /etc/lightdm/lightdm.conf.d/50-greeter.conf "$BACKUP_DIR/50-greeter.conf.bak"
         fi
-        sudo cp "$SCRIPT_DIR/system/lightdm/50-greeter.conf" /etc/lightdm/lightdm.conf.d/ 2>/dev/null
-        ok "Custom macOS login screen configured."
+        # Write the correct greeter name into the conf
+        echo -e "[Seat:*]\ngreeter-session=${GREETER_BIN}\nuser-session=cinnamon" | sudo tee /etc/lightdm/lightdm.conf.d/50-greeter.conf >/dev/null
+
+        # Also update the main lightdm.conf (conf.d alone won't override it)
+        if [ -f /etc/lightdm/lightdm.conf ]; then
+            sudo cp /etc/lightdm/lightdm.conf "$BACKUP_DIR/lightdm.conf.bak"
+            sudo sed -i "s/^greeter-session=.*/greeter-session=${GREETER_BIN}/" /etc/lightdm/lightdm.conf
+            # If greeter-session line doesn't exist, add it under [Seat:*]
+            if ! grep -q '^greeter-session=' /etc/lightdm/lightdm.conf; then
+                sudo sed -i "/^\[Seat:\*\]/a greeter-session=${GREETER_BIN}" /etc/lightdm/lightdm.conf
+            fi
+        fi
+        ok "Custom macOS login screen configured (${GREETER_BIN})."
+    else
+        warn "web-greeter/nody-greeter not available — using slick-greeter with macOS styling."
     fi
 fi
 
@@ -610,14 +655,18 @@ fi
 if [ -d "$SCRIPT_DIR/system/plymouth/47-logo" ]; then
     sudo cp -r "$SCRIPT_DIR/system/plymouth/47-logo" /usr/share/plymouth/themes/
     sudo update-alternatives --install /usr/share/plymouth/themes/default.plymouth default.plymouth \
-        /usr/share/plymouth/themes/47-logo/47-logo.plymouth 200 2>/dev/null
+        /usr/share/plymouth/themes/47-logo/47-logo.plymouth 300 2>/dev/null
     sudo update-alternatives --set default.plymouth \
         /usr/share/plymouth/themes/47-logo/47-logo.plymouth 2>/dev/null
-    sudo update-initramfs -u 2>/dev/null
-    ok "Plymouth boot splash installed (47 logo)."
+    if sudo update-initramfs -u; then
+        ok "Plymouth boot splash installed (47 logo)."
+    else
+        fail "Plymouth theme copied but initramfs rebuild failed — boot splash may not appear."
+    fi
 fi
 
-# GRUB — instant boot, 47 OS branding
+# GRUB — instant boot, 47 OS branding (backup first for uninstall)
+sudo cp /etc/default/grub "$BACKUP_DIR/grub.default.bak" 2>/dev/null
 sudo sed -i 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=0/' /etc/default/grub 2>/dev/null
 sudo sed -i 's/^GRUB_TIMEOUT_STYLE=.*/GRUB_TIMEOUT_STYLE=hidden/' /etc/default/grub 2>/dev/null
 if ! grep -q "GRUB_TIMEOUT_STYLE" /etc/default/grub 2>/dev/null; then
