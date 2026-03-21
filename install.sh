@@ -383,6 +383,22 @@ cp "$SCRIPT_DIR/config/industries.rasi" "$HOME/Documents/47industries/" 2>/dev/n
 # Set 47 logo as user avatar (black bg, white logo — looks clean on login screen)
 cp "$SCRIPT_DIR/system/web-greeter/themes/47-macos/avatar.png" "$HOME/.face" 2>/dev/null
 sudo cp "$SCRIPT_DIR/system/web-greeter/themes/47-macos/avatar.png" "/var/lib/AccountsService/icons/$USER" 2>/dev/null
+# Tell AccountsService to use the icon (required for slick-greeter and lightdm)
+sudo mkdir -p /var/lib/AccountsService/users
+ACCT_FILE="/var/lib/AccountsService/users/$USER"
+if [ -f "$ACCT_FILE" ]; then
+    # Update existing Icon line or add it
+    if grep -q '^Icon=' "$ACCT_FILE"; then
+        sudo sed -i "s|^Icon=.*|Icon=/var/lib/AccountsService/icons/$USER|" "$ACCT_FILE"
+    else
+        echo "Icon=/var/lib/AccountsService/icons/$USER" | sudo tee -a "$ACCT_FILE" >/dev/null
+    fi
+else
+    sudo tee "$ACCT_FILE" >/dev/null <<AVATAR
+[User]
+Icon=/var/lib/AccountsService/icons/$USER
+AVATAR
+fi
 
 # Ensure ~/.local/bin is in PATH (append only, don't duplicate)
 if ! grep -q '\.local/bin' "$HOME/.bashrc" 2>/dev/null; then
@@ -658,10 +674,36 @@ if [ -d "$SCRIPT_DIR/system/plymouth/47-logo" ]; then
         /usr/share/plymouth/themes/47-logo/47-logo.plymouth 300 2>/dev/null
     sudo update-alternatives --set default.plymouth \
         /usr/share/plymouth/themes/47-logo/47-logo.plymouth 2>/dev/null
+
+    # Back up current initramfs before rebuilding (prevents kernel panic if DKMS modules are broken)
+    CURRENT_KERNEL=$(uname -r)
+    INITRAMFS="/boot/initrd.img-${CURRENT_KERNEL}"
+    if [ -f "$INITRAMFS" ]; then
+        sudo cp "$INITRAMFS" "${INITRAMFS}.47backup"
+    fi
+
+    # Remove broken DKMS modules that can corrupt initramfs (common on MacBooks)
+    if dkms status 2>/dev/null | grep -qi "bad\|error\|broken"; then
+        warn "Found broken DKMS modules — cleaning up before initramfs rebuild..."
+        for mod in $(dkms status 2>/dev/null | grep -i "bad\|error\|broken" | cut -d',' -f1); do
+            sudo dkms remove "$mod" --all 2>/dev/null
+        done
+    fi
+    # Specifically handle broadcom-sta which frequently fails on MacBooks
+    if dkms status broadcom-sta 2>/dev/null | grep -qi "error\|bad"; then
+        sudo dkms remove broadcom-sta/6.30.223.271 --all 2>/dev/null
+    fi
+
     if sudo update-initramfs -u; then
         ok "Plymouth boot splash installed (47 logo)."
+        # Clean up backup since rebuild succeeded
+        sudo rm -f "${INITRAMFS}.47backup"
     else
-        fail "Plymouth theme copied but initramfs rebuild failed — boot splash may not appear."
+        warn "Initramfs rebuild failed — restoring backup to prevent boot issues."
+        if [ -f "${INITRAMFS}.47backup" ]; then
+            sudo mv "${INITRAMFS}.47backup" "$INITRAMFS"
+        fi
+        warn "Plymouth theme installed but boot splash may not appear until next kernel update."
     fi
 fi
 
@@ -760,6 +802,11 @@ fi
 
 # Init transparency state
 echo "off" > "$HOME/.config/47industries/transparency-state"
+
+# Restart Plank so it picks up the new dconf settings and launchers
+killall plank 2>/dev/null
+sleep 1
+nohup plank &>/dev/null &
 
 # Reload Cinnamon to pick up the menu icon change
 sleep 1
