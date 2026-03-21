@@ -586,17 +586,17 @@ if [ -d "$SCRIPT_DIR/system/web-greeter/themes/47-macos" ]; then
             # Download web-greeter .deb from GitHub releases
             progress "Downloading web-greeter from GitHub..."
             WG_DEB="/tmp/web-greeter.deb"
-            WG_ARCH=""
-            WG_ARCH=$(dpkg --print-architecture 2>/dev/null || echo "amd64")
+            # Releases use -ubuntu.deb / -debian.deb naming (not arch-based)
+            WG_DISTRO="ubuntu"
             # Try nody-greeter first (actively maintained fork)
-            if curl -fsSL -o "$WG_DEB" "https://github.com/JezerM/nody-greeter/releases/latest/download/nody-greeter-${WG_ARCH}.deb" 2>/dev/null || \
-               wget -q -O "$WG_DEB" "https://github.com/JezerM/nody-greeter/releases/latest/download/nody-greeter-${WG_ARCH}.deb" 2>/dev/null; then
+            if curl -fsSL -o "$WG_DEB" "https://github.com/JezerM/nody-greeter/releases/download/1.6.2/nody-greeter-1.6.2-${WG_DISTRO}.deb" 2>/dev/null || \
+               wget -q -O "$WG_DEB" "https://github.com/JezerM/nody-greeter/releases/download/1.6.2/nody-greeter-1.6.2-${WG_DISTRO}.deb" 2>/dev/null; then
                 sudo dpkg -i "$WG_DEB" 2>/dev/null
                 sudo apt-get install -f -y 2>/dev/null  # fix any missing deps
                 rm -f "$WG_DEB"
             # Fallback: try web-greeter .deb
-            elif curl -fsSL -o "$WG_DEB" "https://github.com/JezerM/web-greeter/releases/latest/download/web-greeter-${WG_ARCH}.deb" 2>/dev/null || \
-                 wget -q -O "$WG_DEB" "https://github.com/JezerM/web-greeter/releases/latest/download/web-greeter-${WG_ARCH}.deb" 2>/dev/null; then
+            elif curl -fsSL -o "$WG_DEB" "https://github.com/JezerM/web-greeter/releases/download/3.5.3/web-greeter-3.5.3-${WG_DISTRO}.deb" 2>/dev/null || \
+                 wget -q -O "$WG_DEB" "https://github.com/JezerM/web-greeter/releases/download/3.5.3/web-greeter-3.5.3-${WG_DISTRO}.deb" 2>/dev/null; then
                 sudo dpkg -i "$WG_DEB" 2>/dev/null
                 sudo apt-get install -f -y 2>/dev/null
                 rm -f "$WG_DEB"
