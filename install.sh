@@ -331,16 +331,16 @@ if [ ! -f "$SOUNDS/startup.ogg" ] && command -v ffmpeg &>/dev/null; then
 fi
 
 # Configure Cinnamon system sounds
-gsettings set org.cinnamon.sounds login-enabled true
-gsettings set org.cinnamon.sounds login-file "$SOUNDS/startup.ogg"
-gsettings set org.cinnamon.sounds plug-enabled true
-gsettings set org.cinnamon.sounds plug-file "$SOUNDS/charging.ogg"
-gsettings set org.cinnamon.sounds unplug-enabled true
-gsettings set org.cinnamon.sounds unplug-file "$SOUNDS/charging.ogg"
-gsettings set org.cinnamon.sounds tile-enabled true
-gsettings set org.cinnamon.sounds notification-enabled true
-gsettings set org.cinnamon.sounds switch-enabled true
-gsettings set org.cinnamon.sounds logout-enabled true
+gset org.cinnamon.sounds login-enabled true
+gset org.cinnamon.sounds login-file "$SOUNDS/startup.ogg"
+gset org.cinnamon.sounds plug-enabled true
+gset org.cinnamon.sounds plug-file "$SOUNDS/charging.ogg"
+gset org.cinnamon.sounds unplug-enabled true
+gset org.cinnamon.sounds unplug-file "$SOUNDS/charging.ogg"
+gset org.cinnamon.sounds tile-enabled true
+gset org.cinnamon.sounds notification-enabled true
+gset org.cinnamon.sounds switch-enabled true
+gset org.cinnamon.sounds logout-enabled true
 
 ok "Done."
 
@@ -470,8 +470,8 @@ cp "$SCRIPT_DIR/config/nemo-actions/"*.nemo_action "$HOME/.local/share/nemo/acti
 cp "$SCRIPT_DIR/config/libinput-gestures.conf" "$HOME/.config/" 2>/dev/null
 
 # Smooth font rendering (macOS-quality text)
-gsettings set org.cinnamon.desktop.font-rendering antialiasing 'rgba' 2>/dev/null
-gsettings set org.cinnamon.desktop.font-rendering hinting 'slight' 2>/dev/null
+gset org.cinnamon.desktop.font-rendering antialiasing 'rgba'
+gset org.cinnamon.desktop.font-rendering hinting 'slight'
 
 
 # Auto-extract on double-click (zip, tar, etc.)
@@ -889,14 +889,13 @@ echo "  - WhiteSur Dark theme + icons + cursors"
 echo "  - SF Pro Display fonts"
 echo "  - Alacritty terminal (neon cyan theme)"
 echo "  - Plank dock (macOS-style, bottom, zoom 175%)"
-echo "  - 4 custom panel applets (added to your existing panel)"
-echo "  - Wobbly windows effect"
+echo "  - 6 custom panel applets (battery, wifi, brightness, sound, etc.)"
+echo "  - Wobbly windows + Glide open/close + Genie minimize"
 echo "  - 47 Sound system (sounds on all actions)"
 echo "  - Transparency toggle (Ctrl+Shift+T)"
-echo "  - Ghost Mode (VPN + MAC spoof + encrypted DNS)"
 echo "  - Matrix terminal splash screen"
-echo "  - 12 keybindings (added alongside your existing ones)"
-echo "  - Custom login screen"
+echo "  - Keybindings (added alongside your existing ones)"
+echo "  - Custom macOS-style login screen + boot splash"
 echo ""
 echo -e "${WHITE}  To finish:${RESET}"
 echo "  1. Log out and log back in (or Ctrl+Alt+Esc to restart Cinnamon)"

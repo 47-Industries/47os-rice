@@ -78,7 +78,7 @@ else
     CURRENT_LIST=$(dconf read /org/cinnamon/desktop/keybindings/custom-list 2>/dev/null)
     if [ -n "$CURRENT_LIST" ]; then
         # Find and remove 47OS keybindings by checking for "47-" prefix in name
-        for path in $(echo "$CURRENT_LIST" | grep -oP "'/org/cinnamon/desktop/keybindings/custom-keybindings/custom\d+/'"); do
+        for path in $(echo "$CURRENT_LIST" | grep -oE "'/org/cinnamon/desktop/keybindings/custom-keybindings/custom[0-9]+/'"); do
             clean_path=$(echo "$path" | tr -d "'")
             name=$(dconf read "${clean_path}name" 2>/dev/null)
             if echo "$name" | grep -q "^'47-"; then
@@ -94,7 +94,9 @@ fi
 # ============================================================
 echo -e "\n${CYAN}[3/10]${WHITE} Removing 47OS autostart entries...${RESET}"
 for f in 47glass-inject 47sound-inject saber-drag swoosh-watcher \
-         window-close-sound window-state-sound; do
+         window-close-sound window-state-sound battery-monitor \
+         dynamic-wallpaper brightness-tracker volume-tracker \
+         middle-click-hold 47os-first-login; do
     rm -f "$HOME/.config/autostart/${f}.desktop"
 done
 echo -e "  ${GREEN}Done.${RESET}"
@@ -181,7 +183,8 @@ echo -e "\n${CYAN}[6/10]${WHITE} Removing 47OS scripts and sounds...${RESET}"
 
 # Scripts in ~/.local/bin
 for script in 47sound 47transparency 47glass-inject.sh \
-              matrix-47.py saber-drag.sh swoosh-watcher.sh 47sound-inject.sh; do
+              matrix-47.py saber-drag.sh swoosh-watcher.sh 47sound-inject.sh \
+              middle-click-hold.py; do
     rm -f "$HOME/.local/bin/$script"
 done
 
@@ -190,16 +193,47 @@ pkill -f saber-drag.sh 2>/dev/null
 pkill -f swoosh-watcher.sh 2>/dev/null
 pkill -f window-close-sound.py 2>/dev/null
 pkill -f window-state-sound.py 2>/dev/null
+pkill -f 47glass-inject.sh 2>/dev/null
+pkill -f 47sound-inject.sh 2>/dev/null
+pkill -f middle-click-hold.py 2>/dev/null
+pkill -f battery-monitor.sh 2>/dev/null
+pkill -f brightness-tracker.sh 2>/dev/null
+pkill -f volume-tracker.sh 2>/dev/null
+pkill -f dynamic-wallpaper.sh 2>/dev/null
+
+# Remove 47OS data directories
+rm -rf "$HOME/Documents/47industries" 2>/dev/null
+rm -rf "$HOME/.local/share/47industries" 2>/dev/null
+rm -rf "$HOME/.config/47industries" 2>/dev/null
 
 # Remove Rofi spotlight theme
 rm -f "$HOME/.config/rofi/themes/spotlight.rasi" 2>/dev/null
 
+# Remove devilspie2 transparency rules
+rm -f "$HOME/.config/devilspie2/transparency.lua" 2>/dev/null
+
 # Remove Nemo actions
 rm -f "$HOME/.local/share/nemo/actions/extract-here.nemo_action" 2>/dev/null
+rm -f "$HOME/.local/share/nemo/actions/trash-sound.nemo_action" 2>/dev/null
 
-# Remove auto-extract handler
+# Remove auto-extract handler and SoundCloud webapp
 rm -f "$HOME/.local/share/applications/auto-extract.desktop" 2>/dev/null
+rm -f "$HOME/.local/share/applications/soundcloud.desktop" 2>/dev/null
 xdg-mime default org.gnome.FileRoller.desktop application/zip 2>/dev/null
+
+# Restore mimeapps.list if backed up
+if [ -f "$BACKUP_DIR/.config/mimeapps.list" ]; then
+    cp "$BACKUP_DIR/.config/mimeapps.list" "$HOME/.config/mimeapps.list"
+fi
+
+# Remove Plank dock launchers (47OS-specific ones)
+rm -rf "$HOME/.config/plank/dock1/launchers" 2>/dev/null
+
+# Remove fastfetch config
+rm -f "$HOME/.config/fastfetch/config.jsonc" 2>/dev/null
+
+# Remove user avatar
+rm -f "$HOME/.face" 2>/dev/null
 
 echo -e "  ${GREEN}Done.${RESET}"
 
@@ -208,7 +242,7 @@ echo -e "  ${GREEN}Done.${RESET}"
 # ============================================================
 echo -e "\n${CYAN}[7/10]${WHITE} Removing custom Cinnamon applets...${RESET}"
 for applet in brightness@custom fake-battery@custom \
-              fake-wifi@custom 47sound@custom vpn-toggle@custom; do
+              fake-wifi@custom 47sound@custom vpn-toggle@custom sound@cinnamon.org; do
     rm -rf "$HOME/.local/share/cinnamon/applets/$applet"
 done
 echo -e "  ${GREEN}Done.${RESET}"

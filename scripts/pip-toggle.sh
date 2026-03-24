@@ -18,7 +18,7 @@ if [ -f "$STATE_FILE" ]; then
     notify-send "PiP Off" "" -i window-restore-symbolic -t 1500
 else
     # Save current geometry
-    eval $(xdotool getwindowgeometry --shell "$WID")
+    eval "$(xdotool getwindowgeometry --shell "$WID")"
     echo "$X $Y $WIDTH $HEIGHT" > "$STATE_FILE"
     # Resize to small corner window
     SCREEN_W=$(xdpyinfo 2>/dev/null | awk '/dimensions:/ {print $2}' | cut -dx -f1)
