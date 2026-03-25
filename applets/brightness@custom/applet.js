@@ -170,7 +170,7 @@ class BrightnessApplet extends Applet.IconApplet {
 
         // Make popup translucent if transparency is on
         try {
-            let [ok3, raw3] = GLib.file_get_contents("/tmp/transparency_state");
+            let [ok3, raw3] = GLib.file_get_contents(GLib.build_filenamev([GLib.get_home_dir(), ".config/47industries/transparency-state"]));
             let tState = raw3.toString().trim();
             if (tState === "on") {
                 this.menu.actor.set_style("background-color: rgba(15, 15, 15, 0.15); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; border-image: none;");
