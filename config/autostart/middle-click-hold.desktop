@@ -4,5 +4,6 @@ Name=Middle Click Hold
 Comment=Hold middle mouse button to hold spacebar (voice input)
 Exec=python3 $HOME/.local/bin/middle-click-hold.py
 X-GNOME-Autostart-enabled=true
+X-GNOME-Autostart-Delay=2
 Hidden=false
 NoDisplay=true

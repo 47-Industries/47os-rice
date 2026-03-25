@@ -9,8 +9,9 @@ if [[ ! -f "$STATE_FILE" ]]; then
 fi
 source "$STATE_FILE"
 save_state() {
-    echo "muted=$muted" > "$STATE_FILE"
-    echo "volume=$volume" >> "$STATE_FILE"
+    local tmp="${STATE_FILE}.tmp"
+    printf 'muted=%s\nvolume=%s\n' "$muted" "$volume" > "$tmp"
+    mv -f "$tmp" "$STATE_FILE"
 }
 case "${1:-status}" in
     mute) muted=true; save_state; echo "47Sound: Muted" ;;

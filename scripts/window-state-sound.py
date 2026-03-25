@@ -4,6 +4,8 @@ import subprocess
 import time
 import os
 import sys
+import atexit
+import signal
 
 # Prevent duplicate instances
 LOCK_FILE = "/tmp/window-state-sound.lock"
@@ -16,6 +18,15 @@ if os.path.exists(LOCK_FILE):
         pass  # Stale lock, continue
 with open(LOCK_FILE, "w") as f:
     f.write(str(os.getpid()))
+
+def cleanup():
+    try:
+        os.remove(LOCK_FILE)
+    except OSError:
+        pass
+
+atexit.register(cleanup)
+signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
 
 MINIMIZE_SOUND = os.environ["HOME"] + "/Documents/47industries/sounds/minimize.ogg"
 MAXIMIZE_SOUND = os.environ["HOME"] + "/Documents/47industries/sounds/maximize.ogg"

@@ -1,9 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=47 Sound Slider Inject
-Comment=Adds 47 Sounds slider to sound applet
-Exec=$HOME/.local/bin/47sound-inject.sh
-Hidden=false
-NoDisplay=false
-X-GNOME-Autostart-enabled=false
-X-GNOME-Autostart-Delay=5
