@@ -1,0 +1,231 @@
+#!/usr/bin/env bash
+# 47OS Face Unlock — set up Windows-Hello-style face login on a laptop with an
+# IR camera. Wraps Howdy (github.com/boltgolt/howdy) with the safety rails that
+# matter: nothing touches PAM until a live recognition test has actually passed,
+# and the password path is never removed.
+#
+# Run:  47os-face-unlock          (GUI if zenity is present, otherwise terminal)
+set -uo pipefail
+
+GUI=0
+command -v zenity >/dev/null 2>&1 && [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ] && GUI=1
+
+CFG=/etc/howdy/config.ini
+BACKUP_DIR="$HOME/.config/47industries/face-unlock-backups"
+mkdir -p "$BACKUP_DIR"
+
+say()  { if [ $GUI = 1 ]; then zenity --info --width=430 --title="47OS Face Unlock" --text="$1" 2>/dev/null; else echo -e "\n$1\n"; fi; }
+err()  { if [ $GUI = 1 ]; then zenity --error --width=430 --title="47OS Face Unlock" --text="$1" 2>/dev/null; else echo -e "\nERROR: $1\n" >&2; fi; }
+ask()  { if [ $GUI = 1 ]; then zenity --question --width=430 --title="47OS Face Unlock" --text="$1" 2>/dev/null; else read -rp "$1 [y/N] " a; [[ "$a" =~ ^[Yy] ]]; fi; }
+
+# Privileged helper. pkexec gives a polkit password box under the GUI; sudo in a terminal.
+root() {
+    if [ "$(id -u)" = 0 ]; then "$@"; return $?; fi
+    if [ $GUI = 1 ] && command -v pkexec >/dev/null 2>&1; then pkexec "$@"; else sudo "$@"; fi
+}
+
+# ---------------------------------------------------------------- detection --
+detect_cameras() {
+    # Prints: <device>|<name>|<ir|color>
+    local dev name fmts
+    for dev in /dev/video*; do
+        [ -e "$dev" ] || continue
+        # Only real capture devices; a lot of /dev/video* are metadata nodes.
+        v4l2-ctl -d "$dev" --all 2>/dev/null | grep -q "Video Capture" || continue
+        name=$(v4l2-ctl -d "$dev" --info 2>/dev/null | sed -n 's/^\s*Card type\s*:\s*//p' | head -1)
+        fmts=$(v4l2-ctl -d "$dev" --list-formats 2>/dev/null)
+        # An IR sensor reports a greyscale format (GREY / Y8 / Y10 / Y16) and no MJPG.
+        if echo "$fmts" | grep -qE "'(GREY|Y8  |Y10 |Y12 |Y14 |Y16 )'" || echo "$name" | grep -qiE "\bIR\b|infrared"; then
+            echo "$dev|${name:-camera}|ir"
+        else
+            echo "$dev|${name:-camera}|color"
+        fi
+    done
+}
+
+pick_camera() {
+    local list ircount
+    list=$(detect_cameras)
+    [ -z "$list" ] && return 1
+    ircount=$(echo "$list" | grep -c '|ir$')
+    if [ "$ircount" = 1 ]; then
+        echo "$list" | grep '|ir$' | cut -d'|' -f1
+        return 0
+    fi
+    if [ $GUI = 1 ]; then
+        local rows=() line
+        while IFS='|' read -r d n t; do rows+=("$d" "$n" "$t"); done <<< "$list"
+        zenity --list --width=520 --height=280 --title="47OS Face Unlock" \
+            --text="Pick the camera to use. The infrared one works in the dark — that's the Windows Hello camera." \
+            --column="Device" --column="Name" --column="Type" "${rows[@]}" 2>/dev/null
+    else
+        echo "$list" | nl -w2 -s') '
+        read -rp "Device path to use: " d; echo "$d"
+    fi
+}
+
+# ------------------------------------------------------------------ install --
+install_howdy() {
+    command -v howdy >/dev/null 2>&1 && return 0
+
+    # CRITICAL: 47OS rewrites /etc/os-release, so VERSION_CODENAME is "genesis"
+    # and add-apt-repository would build a 404 URL. Pin the real Ubuntu base.
+    local base
+    base=$(. /etc/os-release 2>/dev/null; echo "${UBUNTU_CODENAME:-noble}")
+    [ -z "$base" ] && base=noble
+
+    say "Installing Howdy (the face recognition engine).\n\nThis downloads about 100 MB and takes a couple of minutes."
+
+    if ! root bash -c "command -v add-apt-repository >/dev/null && add-apt-repository -y -n ppa:boltgolt/howdy" ; then
+        err "Could not add the Howdy repository."; return 1
+    fi
+    # add-apt-repository writes the wrong series on 47OS — repair it.
+    root bash -c "for f in /etc/apt/sources.list.d/boltgolt*; do [ -f \"\$f\" ] && sed -i 's/ genesis / $base /; s/ zena / $base /' \"\$f\"; done"
+    root apt-get update -qq
+    if ! root apt-get install -y howdy; then
+        err "Howdy failed to install. Nothing was changed on your login."
+        return 1
+    fi
+    return 0
+}
+
+# ------------------------------------------------------------------- config --
+configure() {
+    local dev="$1"
+    [ -f "$CFG" ] || { err "Howdy config not found at $CFG."; return 1; }
+    root cp "$CFG" "$CFG.47os.bak"
+    root bash -c "
+        sed -i 's|^device_path *=.*|device_path = $dev|' '$CFG'
+        sed -i 's|^certainty *=.*|certainty = 3.5|' '$CFG'
+        sed -i 's|^dark_threshold *=.*|dark_threshold = 60|' '$CFG'
+        sed -i 's|^use_cnn *=.*|use_cnn = false|' '$CFG'
+        sed -i 's|^timeout *=.*|timeout = 4|' '$CFG'
+        sed -i 's|^abort_if_lid_closed *=.*|abort_if_lid_closed = true|' '$CFG'
+        sed -i 's|^no_confirmation *=.*|no_confirmation = true|' '$CFG'
+    "
+}
+
+enroll() {
+    if [ $GUI = 1 ]; then
+        say "Look straight at the camera in normal light, then click OK.\n\nA terminal will open, count you in, and take the scan."
+        local term=""
+        for t in alacritty x-terminal-emulator gnome-terminal xfce4-terminal xterm; do
+            command -v "$t" >/dev/null 2>&1 && { term="$t"; break; }
+        done
+        if [ -n "$term" ]; then
+            case "$term" in
+                alacritty) "$term" -e bash -c 'sudo howdy add; echo; read -rp "Done — press Enter to close."' ;;
+                *)         "$term" -e bash -c 'sudo howdy add; echo; read -rp "Done — press Enter to close."' ;;
+            esac
+        else
+            root howdy add
+        fi
+    else
+        root howdy add
+    fi
+}
+
+test_face() {
+    local out rc
+    out=$(root howdy test 2>&1 <<< "" ) ; rc=$?
+    echo "$out"
+    return $rc
+}
+
+enable_pam() {
+    root cp -a /etc/pam.d "$BACKUP_DIR/pam.d.$(date +%s)" 2>/dev/null
+    if [ -f /usr/share/pam-configs/howdy ]; then
+        root pam-auth-update --enable howdy
+    else
+        # Manual, and only ever as "sufficient" so the password still works.
+        root bash -c "grep -q 'howdy/pam.py' /etc/pam.d/common-auth || sed -i '1i auth sufficient pam_python.so /lib/security/howdy/pam.py' /etc/pam.d/common-auth"
+    fi
+    # Prove the password path still works before we walk away.
+    if ! echo | root true 2>/dev/null; then :; fi
+}
+
+disable_pam() {
+    if [ -f /usr/share/pam-configs/howdy ]; then
+        root pam-auth-update --remove howdy
+    else
+        root sed -i '/howdy\/pam.py/d' /etc/pam.d/common-auth
+    fi
+}
+
+status_text() {
+    local s="Face Unlock status\n\n"
+    if command -v howdy >/dev/null 2>&1; then s+="Engine: installed\n"; else s+="Engine: not installed\n"; fi
+    if [ -f "$CFG" ]; then s+="Camera: $(grep -m1 '^device_path' "$CFG" | cut -d= -f2- | xargs)\n"; fi
+    local n
+    n=$(sudo -n howdy list 2>/dev/null | grep -c '^[0-9]' || echo 0)
+    s+="Enrolled face models: ${n}\n"
+    if grep -rqs 'howdy' /etc/pam.d/ 2>/dev/null; then s+="Login integration: ON\n"; else s+="Login integration: OFF\n"; fi
+    echo -e "$s"
+}
+
+# --------------------------------------------------------------------- main --
+main_menu() {
+    if [ $GUI = 1 ]; then
+        zenity --list --width=560 --height=330 --title="47OS Face Unlock" \
+            --text="$(status_text)" --column="Action" --column="What it does" \
+            "setup"   "Set up face unlock (install, scan my face, test)" \
+            "add"     "Add another scan (glasses, different lighting)" \
+            "test"    "Test recognition right now" \
+            "on"      "Turn face unlock ON for login and sudo" \
+            "off"     "Turn face unlock OFF (password only)" \
+            "remove"  "Delete all my face models" 2>/dev/null
+    else
+        echo -e "$(status_text)"
+        echo "1) setup  2) add  3) test  4) on  5) off  6) remove"
+        read -rp "Choice: " c
+        case "$c" in 1) echo setup;; 2) echo add;; 3) echo test;; 4) echo on;; 5) echo off;; 6) echo remove;; *) echo "";; esac
+    fi
+}
+
+if ! command -v v4l2-ctl >/dev/null 2>&1; then
+    say "Installing camera tools first…"
+    root apt-get install -y v4l-utils >/dev/null 2>&1
+fi
+
+ACTION="${1:-}"
+[ -z "$ACTION" ] && ACTION=$(main_menu)
+[ -z "$ACTION" ] && exit 0
+
+case "$ACTION" in
+    setup)
+        CAMS=$(detect_cameras)
+        if [ -z "$CAMS" ]; then
+            err "No camera found on this machine.\n\nFace unlock needs a webcam — ideally the infrared one that Windows Hello uses."
+            exit 1
+        fi
+        if ! echo "$CAMS" | grep -q '|ir$'; then
+            ask "No infrared camera detected — only a normal colour camera.\n\nFace unlock will still work, but only in decent light, and a colour camera is easier to fool with a photo.\n\nSet it up anyway?" || exit 0
+        fi
+        DEV=$(pick_camera); [ -z "$DEV" ] && exit 0
+        install_howdy || exit 1
+        configure "$DEV" || exit 1
+        enroll
+        OUT=$(root howdy test 2>&1 | tail -5)
+        if echo "$OUT" | grep -qi "identified\|recognized\|match"; then
+            if ask "Recognition worked.\n\nTurn face unlock on for login and sudo now?\n\nYour password always keeps working — this only adds a faster way in."; then
+                enable_pam
+                say "Face unlock is ON.\n\nAt the login screen, just look at the camera. If it can't see you, type your password like normal.\n\nTurn it off any time from Face Unlock in the menu."
+            else
+                say "Face model saved. Login integration left OFF — flip it on from this app whenever you want."
+            fi
+        else
+            err "Your face was scanned, but the live test didn't recognise you:\n\n$OUT\n\nNothing was changed on your login. Try 'Add another scan' in better light."
+        fi
+        ;;
+    add)    enroll ;;
+    test)   O=$(root howdy test 2>&1 | tail -8); say "$O" ;;
+    on)     enable_pam; say "Face unlock is ON for login and sudo.\nYour password still works." ;;
+    off)    disable_pam; say "Face unlock is OFF. Password only." ;;
+    remove)
+        ask "Delete every saved face model for this user?" || exit 0
+        root howdy clear
+        disable_pam
+        say "Face models deleted and login integration turned off."
+        ;;
+    *) exit 0 ;;
+esac

@@ -1,6 +1,7 @@
 const Applet = imports.ui.applet;
 const PopupMenu = imports.ui.popupMenu;
 const GLib = imports.gi.GLib;
+const Gio = imports.gi.Gio;
 const Mainloop = imports.mainloop;
 const Util = imports.misc.util;
 const St = imports.gi.St;
@@ -19,33 +20,61 @@ class BrightnessApplet extends Applet.IconApplet {
         this.menuManager.addMenu(this.menu);
 
         this._screenBrightness = 1.0;
+        this._displays = [];          // cached; xrandr is far too slow to call per drag frame
         this._getScreenBrightness();
+        this._refreshDisplays();
+    }
+
+    _decode(bytes) {
+        if (bytes === null || bytes === undefined) return "";
+        if (typeof bytes === "string") return bytes;
+        try { return new TextDecoder("utf-8").decode(bytes); }
+        catch (e) { return imports.byteArray.toString(bytes); }
+    }
+
+    _runAsync(argv, onDone) {
+        let proc;
+        try {
+            proc = new Gio.Subprocess({
+                argv: argv,
+                flags: Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_SILENCE
+            });
+            proc.init(null);
+        } catch (e) { onDone(""); return; }
+        proc.communicate_utf8_async(null, null, (pr, res) => {
+            let out = "";
+            try { let [, stdout] = pr.communicate_utf8_finish(res); out = this._decode(stdout); }
+            catch (e) { out = ""; }
+            onDone(out);
+        });
     }
 
     _getScreenBrightness() {
-        try {
-            let [ok, out] = GLib.spawn_command_line_sync("xrandr --verbose");
-            let output = out.toString();
+        // async: never block the compositor to read a number
+        this._runAsync(["xrandr", "--verbose"], (output) => {
             let match = output.match(/Brightness:\s*([\d.]+)/);
-            if (match) {
-                this._screenBrightness = parseFloat(match[1]);
+            if (match) this._screenBrightness = parseFloat(match[1]);
+        });
+    }
+
+    _refreshDisplays() {
+        this._runAsync(["xrandr", "--query"], (output) => {
+            let found = [];
+            for (let line of output.split("\n")) {
+                if (line.indexOf(" connected") >= 0) found.push(line.split(" ")[0]);
             }
-        } catch (e) {}
+            if (found.length > 0) this._displays = found;
+        });
     }
 
     _setScreenBrightness(value) {
         this._screenBrightness = value;
-        // Get connected display name
-        try {
-            let [ok, out] = GLib.spawn_command_line_sync("xrandr --query");
-            let lines = out.toString().split("\n");
-            for (let line of lines) {
-                if (line.indexOf(" connected") >= 0) {
-                    let display = line.split(" ")[0];
-                    Util.spawnCommandLine("xrandr --output " + display + " --brightness " + value.toFixed(2));
-                }
-            }
-        } catch (e) {}
+        // Uses the cached display list. Calling xrandr --query here ran once per
+        // drag frame and stalled the whole desktop while the slider moved.
+        if (this._displays.length === 0) { this._refreshDisplays(); return; }
+        for (let display of this._displays) {
+            Util.spawn(["xrandr", "--output", display, "--brightness", value.toFixed(2)]);
+        }
     }
 
     _buildMenu() {

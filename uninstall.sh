@@ -96,7 +96,7 @@ echo -e "\n${CYAN}[3/10]${WHITE} Removing 47OS autostart entries...${RESET}"
 for f in 47glass-inject 47sound-inject saber-drag swoosh-watcher \
          window-close-sound window-state-sound battery-monitor \
          dynamic-wallpaper brightness-tracker volume-tracker \
-         middle-click-hold 47os-first-login; do
+         middle-click-hold 47os-first-login 47os-blueman; do
     rm -f "$HOME/.config/autostart/${f}.desktop"
 done
 echo -e "  ${GREEN}Done.${RESET}"
@@ -197,7 +197,7 @@ echo -e "\n${CYAN}[6/10]${WHITE} Removing 47OS scripts and sounds...${RESET}"
 # Scripts in ~/.local/bin
 for script in 47sound 47transparency 47glass-inject.sh \
               matrix-47.py saber-drag.sh swoosh-watcher.sh 47sound-inject.sh \
-              middle-click-hold.py; do
+              middle-click-hold.py 47os-face-unlock; do
     rm -f "$HOME/.local/bin/$script"
 done
 
@@ -232,6 +232,10 @@ rm -f "$HOME/.local/share/nemo/actions/empty-trash-sound.nemo_action" 2>/dev/nul
 # Remove auto-extract handler and SoundCloud webapp
 rm -f "$HOME/.local/share/applications/auto-extract.desktop" 2>/dev/null
 rm -f "$HOME/.local/share/applications/soundcloud.desktop" 2>/dev/null
+rm -f "$HOME/.local/share/applications/47os-face-unlock.desktop" 2>/dev/null
+# Bluetooth: give blueman its own tray icon back and drop the controller tweak.
+gsettings reset org.blueman.general show-statusicon 2>/dev/null
+sudo rm -f /etc/modprobe.d/47os-bluetooth-controllers.conf 2>/dev/null
 xdg-mime default org.gnome.FileRoller.desktop application/zip 2>/dev/null
 
 # Restore mimeapps.list if backed up
@@ -255,7 +259,7 @@ echo -e "  ${GREEN}Done.${RESET}"
 # ============================================================
 echo -e "\n${CYAN}[7/10]${WHITE} Removing custom Cinnamon applets...${RESET}"
 for applet in brightness@custom fake-battery@custom \
-              fake-wifi@custom 47sound@custom vpn-toggle@custom sound@cinnamon.org; do
+              fake-wifi@custom bluetooth@custom 47sound@custom vpn-toggle@custom sound@cinnamon.org; do
     rm -rf "$HOME/.local/share/cinnamon/applets/$applet"
 done
 echo -e "  ${GREEN}Done.${RESET}"

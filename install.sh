@@ -147,6 +147,7 @@ if sudo apt install -y \
     brightnessctl pulseaudio-utils maim nemo-preview copyq kdeconnect \
     inotify-tools devilspie2 macchanger x11-utils ffmpeg zenity \
     libinput-tools \
+    bluez bluez-tools blueman v4l-utils \
     python3 jq curl wget git dconf-cli lm-sensors \
     gnome-maps gnome-contacts gnome-clocks gnome-calendar cheese \
     rhythmbox shotwell drawing simple-scan 2>/dev/null; then
@@ -367,14 +368,19 @@ cp "$SCRIPT_DIR/assets/sounds/drag/"* "$HOME/.local/share/47industries/sounds/" 
 mkdir -p "$HOME/Documents/47industries/sounds"
 cp "$SCRIPT_DIR/assets/sounds/ui/"* "$HOME/Documents/47industries/sounds/" 2>/dev/null
 
-# Generate system sounds if not present
+# System sounds
 SOUNDS="$HOME/Documents/47industries/sounds"
-if [ ! -f "$SOUNDS/startup.ogg" ] && command -v ffmpeg &>/dev/null; then
+
+# Startup: the arc reactor spin-up. Shipped as a real audio file, not a
+# generated sine chime, and it also replaces the greeter's login sound so the
+# boot and the login screen say the same thing.
+if [ -f "$SCRIPT_DIR/assets/sounds/system/arc-reactor.ogg" ]; then
+    cp -f "$SCRIPT_DIR/assets/sounds/system/arc-reactor.ogg" "$SOUNDS/startup.ogg"
+    ok "Arc reactor startup sound installed."
+fi
+
+if [ ! -f "$SOUNDS/charging.ogg" ] && command -v ffmpeg &>/dev/null; then
     progress "Generating system sounds..."
-    # Startup chime (ascending two-tone)
-    ffmpeg -y -f lavfi -i "sine=frequency=523:duration=0.3" -f lavfi -i "sine=frequency=659:duration=0.4" \
-        -filter_complex "[0]afade=t=in:d=0.05,afade=t=out:st=0.2:d=0.1,volume=0.4[a];[1]adelay=200|200,afade=t=in:d=0.05,afade=t=out:st=0.25:d=0.15,volume=0.4[b];[a][b]amix=inputs=2:duration=longest,aecho=0.8:0.7:40:0.3" \
-        "$SOUNDS/startup.ogg" 2>/dev/null
     # Charging boop
     ffmpeg -y -f lavfi -i "sine=frequency=880:duration=0.15" -f lavfi -i "sine=frequency=1175:duration=0.15" \
         -filter_complex "[0]afade=t=in:d=0.02,afade=t=out:st=0.1:d=0.05,volume=0.3[a];[1]adelay=100|100,afade=t=in:d=0.02,afade=t=out:st=0.1:d=0.05,volume=0.3[b];[a][b]amix=inputs=2:duration=longest" \
@@ -475,7 +481,7 @@ APPLET_DIR="$HOME/.local/share/cinnamon/applets"
 mkdir -p "$APPLET_DIR"
 
 for applet in brightness@custom fake-battery@custom \
-              fake-wifi@custom 47sound@custom vpn-toggle@custom sound@cinnamon.org; do
+              fake-wifi@custom bluetooth@custom 47sound@custom vpn-toggle@custom sound@cinnamon.org; do
     if [ -d "$SCRIPT_DIR/applets/$applet" ]; then
         cp -r "$SCRIPT_DIR/applets/$applet" "$APPLET_DIR/"
     else
@@ -483,7 +489,7 @@ for applet in brightness@custom fake-battery@custom \
     fi
 done
 
-ok "6 custom applets installed."
+ok "7 custom applets installed."
 
 # ============================================================
 # STEP 8: Install Cinnamon extensions
@@ -960,6 +966,77 @@ cp -r "$SCRIPT_DIR/browser-extension/"* "$HOME/Documents/47industries/47-glass-e
 ok "Done."
 
 # ============================================================
+# STEP 17: Bluetooth (controllers, headphones, peripherals)
+# ============================================================
+progress "Setting up Bluetooth..."
+
+if [ -d /sys/class/bluetooth ] && [ -n "$(ls -A /sys/class/bluetooth 2>/dev/null)" ] || rfkill list bluetooth 2>/dev/null | grep -q .; then
+    sudo rfkill unblock bluetooth 2>/dev/null
+    sudo systemctl enable --now bluetooth 2>/dev/null && ok "Bluetooth service enabled."
+
+    # Xbox / PlayStation pads over Bluetooth need L2CAP ERTM off on Linux.
+    # Without this an Xbox One/Series controller pairs and then instantly drops.
+    if [ ! -f /etc/modprobe.d/47os-bluetooth-controllers.conf ]; then
+        echo "# 47OS: required for Xbox One/Series controllers over Bluetooth" | \
+            sudo tee /etc/modprobe.d/47os-bluetooth-controllers.conf >/dev/null
+        echo "options bluetooth disable_ertm=Y" | \
+            sudo tee -a /etc/modprobe.d/47os-bluetooth-controllers.conf >/dev/null
+        # Apply now too, so it works before the next reboot.
+        echo Y | sudo tee /sys/module/bluetooth/parameters/disable_ertm >/dev/null 2>&1
+        ok "Game controller pairing fix applied."
+    fi
+
+    # blueman runs as the pairing agent (PIN prompts, "connect to..." dialogs)
+    # but its tray icon is hidden — the 47OS applet is the one you see.
+    if command -v blueman-applet &>/dev/null; then
+        gset org.blueman.general show-statusicon false
+        mkdir -p "$HOME/.config/autostart"
+        cat > "$HOME/.config/autostart/47os-blueman.desktop" <<'BTAUTO'
+[Desktop Entry]
+Type=Application
+Name=47OS Bluetooth Agent
+Exec=blueman-applet
+Icon=bluetooth
+X-GNOME-Autostart-enabled=true
+NoDisplay=true
+BTAUTO
+        ok "Bluetooth pairing agent set to start with the session."
+    fi
+else
+    warn "No Bluetooth hardware detected — skipping Bluetooth setup."
+fi
+
+# ============================================================
+# STEP 18: Face Unlock (laptops with an IR / Windows Hello camera)
+# ============================================================
+progress "Installing Face Unlock..."
+
+# The engine itself is NOT installed here: it's ~100 packages and it only
+# makes sense on a machine with the right camera. This installs the setup
+# app; the user runs it once from Menu > Preferences > Face Unlock and it
+# does detection, install, enrolment and testing on the actual hardware.
+if [ -f "$SCRIPT_DIR/scripts/47os-face-unlock" ]; then
+    install -m 0755 "$SCRIPT_DIR/scripts/47os-face-unlock" "$HOME/.local/bin/47os-face-unlock"
+    mkdir -p "$HOME/.local/share/applications"
+    cat > "$HOME/.local/share/applications/47os-face-unlock.desktop" <<FACEDESK
+[Desktop Entry]
+Type=Application
+Name=Face Unlock
+GenericName=Face Recognition Login
+Comment=Log in and authorise with your face, like Windows Hello
+Exec=$HOME/.local/bin/47os-face-unlock
+Icon=avatar-default-symbolic
+Terminal=false
+Categories=Settings;DesktopSettings;X-GNOME-PersonalSettings;
+Keywords=face;unlock;login;hello;camera;biometric;security;
+FACEDESK
+    update-desktop-database "$HOME/.local/share/applications" 2>/dev/null
+    ok "Face Unlock installed (Menu > Preferences > Face Unlock)."
+else
+    warn "Face Unlock script not found — skipping."
+fi
+
+# ============================================================
 # Save install manifest for uninstall
 # ============================================================
 echo "$BACKUP_DIR" > "$HOME/.config/47industries/backup-path"
@@ -985,7 +1062,9 @@ echo "  - WhiteSur Dark theme + icons + cursors"
 echo "  - SF Pro Display fonts"
 echo "  - Alacritty terminal (neon cyan theme)"
 echo "  - Plank dock (macOS-style, bottom, zoom 175%)"
-echo "  - 6 custom panel applets (battery, wifi, brightness, sound, etc.)"
+echo "  - 7 custom panel applets (battery, wifi, bluetooth, brightness, sound, etc.)"
+echo "  - Bluetooth: controllers, headphones, peripherals (panel applet)"
+echo "  - Face Unlock setup app (Menu > Preferences > Face Unlock)"
 echo "  - Wobbly windows + Glide open/close + Genie minimize"
 echo "  - 47 Sound system (sounds on all actions)"
 echo "  - Transparency toggle (Ctrl+Shift+T)"

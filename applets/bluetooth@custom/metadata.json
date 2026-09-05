@@ -1,0 +1,8 @@
+{
+    "uuid": "bluetooth@custom",
+    "name": "Bluetooth",
+    "description": "47OS Bluetooth — pair and connect controllers, headphones and peripherals",
+    "version": "1.0",
+    "cinnamon-version": ["5.0", "6.0"],
+    "max-instances": 1
+}
