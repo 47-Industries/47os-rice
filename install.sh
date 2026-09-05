@@ -986,22 +986,23 @@ if [ -d /sys/class/bluetooth ] && [ -n "$(ls -A /sys/class/bluetooth 2>/dev/null
         ok "Game controller pairing fix applied."
     fi
 
-    # blueman runs as the pairing agent (PIN prompts, "connect to..." dialogs)
-    # but its tray icon is hidden — the 47OS applet is the one you see.
-    if command -v blueman-applet &>/dev/null; then
-        gset org.blueman.general show-statusicon false
-        mkdir -p "$HOME/.config/autostart"
-        cat > "$HOME/.config/autostart/47os-blueman.desktop" <<'BTAUTO'
+    # blueman is installed for its pairing window (blueman-manager, which the
+    # panel applet opens), but blueman-applet is deliberately NOT autostarted:
+    # its tray icon plugin cannot be disabled, so it would put a second
+    # bluetooth icon in the panel next to the 47OS one.
+    rm -f "$HOME/.config/autostart/blueman.desktop" 2>/dev/null
+    mkdir -p "$HOME/.config/autostart"
+    cat > "$HOME/.config/autostart/blueman.desktop" <<'BTOFF'
 [Desktop Entry]
 Type=Application
-Name=47OS Bluetooth Agent
-Exec=blueman-applet
-Icon=bluetooth
-X-GNOME-Autostart-enabled=true
+Name=Blueman Applet
+Exec=/usr/bin/blueman-applet
+X-GNOME-Autostart-enabled=false
+Hidden=true
 NoDisplay=true
-BTAUTO
-        ok "Bluetooth pairing agent set to start with the session."
-    fi
+BTOFF
+    ok "Bluetooth applet ready (one icon, not two)."
+
 else
     warn "No Bluetooth hardware detected — skipping Bluetooth setup."
 fi
