@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# 47OS privileged power control. Runs as root via a scoped NOPASSWD sudoers
+# rule. Takes exactly one of two literal words — no paths, no pass-through —
+# so the sudo grant can't be turned into arbitrary root.
+set -uo pipefail
+
+MODE="${1:-}"
+case "$MODE" in saver|balanced) ;; *) echo "usage: 47os-powerctl {saver|balanced}" >&2; exit 2 ;; esac
+
+write() { [ -e "$2" ] && printf '%s' "$1" > "$2" 2>/dev/null; }
+
+if [ "$MODE" = "saver" ]; then
+    command -v tlp >/dev/null 2>&1 && tlp bat >/dev/null 2>&1
+    for c in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do write powersave "$c"; done
+    for e in /sys/devices/system/cpu/cpu*/cpufreq/energy_performance_preference; do write power "$e"; done
+    write 1 /sys/devices/system/cpu/intel_pstate/no_turbo
+    write 0 /sys/devices/system/cpu/cpufreq/boost
+    write low-power /sys/firmware/acpi/platform_profile
+else
+    command -v tlp >/dev/null 2>&1 && tlp start >/dev/null 2>&1
+    GOV=schedutil
+    grep -qw schedutil /sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors 2>/dev/null || GOV=powersave
+    for c in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do write "$GOV" "$c"; done
+    for e in /sys/devices/system/cpu/cpu*/cpufreq/energy_performance_preference; do write balance_power "$e"; done
+    write 0 /sys/devices/system/cpu/intel_pstate/no_turbo
+    write 1 /sys/devices/system/cpu/cpufreq/boost
+    write balanced /sys/firmware/acpi/platform_profile
+fi
+exit 0

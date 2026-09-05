@@ -7,9 +7,10 @@ const Mainloop = imports.mainloop;
 const Util = imports.misc.util;
 
 const BATTERY_PATH = "/sys/class/power_supply";
-const UPDATE_INTERVAL = 30; // seconds
+const UPDATE_INTERVAL = 15;   // seconds
+const PULSE_INTERVAL = 900;   // ms, charging pulse
 
-class BatteryApplet extends Applet.IconApplet {
+class BatteryApplet extends Applet.TextIconApplet {
     constructor(orientation, panelHeight, instanceId) {
         super(orientation, panelHeight, instanceId);
 
@@ -18,13 +19,18 @@ class BatteryApplet extends Applet.IconApplet {
         this.menuManager.addMenu(this.menu);
 
         this._battery = this._findBattery();
+        this._pulseOn = false;
+        this._pulseId = 0;
+        this._timerId = 0;
+        this._saver = this._readMode() === "saver";
+
         this._update();
         this._startTimer();
     }
 
+    // ------------------------------------------------------------- reading --
+
     _findBattery() {
-        // Look for a real laptop battery in /sys/class/power_supply/
-        // Only match BAT* devices — skip USB peripherals like apple_mfi_fastcharge
         try {
             let dir = Gio.File.new_for_path(BATTERY_PATH);
             let enumerator = dir.enumerate_children("standard::name", Gio.FileQueryInfoFlags.NONE, null);
@@ -34,37 +40,44 @@ class BatteryApplet extends Applet.IconApplet {
                 if (!name.match(/^BAT[0-9]/)) continue;
                 let typePath = BATTERY_PATH + "/" + name + "/type";
                 let [ok, contents] = GLib.file_get_contents(typePath);
-                if (ok && contents.toString().trim() === "Battery") {
+                if (ok && this._decode(contents).trim() === "Battery") {
                     return BATTERY_PATH + "/" + name;
                 }
             }
-        } catch (e) {
-            // No power_supply directory or error reading it
-        }
+        } catch (e) {}
         return null;
+    }
+
+    _decode(bytes) {
+        if (bytes === null || bytes === undefined) return "";
+        if (typeof bytes === "string") return bytes;
+        try { return new TextDecoder("utf-8").decode(bytes); }
+        catch (e) { return imports.byteArray.toString(bytes); }
     }
 
     _readFile(path) {
         try {
             let [ok, contents] = GLib.file_get_contents(path);
-            if (ok) return contents.toString().trim();
+            if (ok) return this._decode(contents).trim();
         } catch (e) {}
         return null;
+    }
+
+    _readMode() {
+        let p = GLib.get_home_dir() + "/.config/47industries/power-mode";
+        let v = this._readFile(p);
+        return v || "balanced";
     }
 
     _getBatteryInfo() {
         if (!this._battery) return null;
 
-        let capacity = this._readFile(this._battery + "/capacity");
-        let status = this._readFile(this._battery + "/status");
-        let energyNow = this._readFile(this._battery + "/energy_now");
-        let energyFull = this._readFile(this._battery + "/energy_full");
-        let powerNow = this._readFile(this._battery + "/power_now");
-
-        // Some systems use charge_now/charge_full instead of energy_now/energy_full
-        if (!energyNow) energyNow = this._readFile(this._battery + "/charge_now");
-        if (!energyFull) energyFull = this._readFile(this._battery + "/charge_full");
-        if (!powerNow) powerNow = this._readFile(this._battery + "/current_now");
+        let capacity  = this._readFile(this._battery + "/capacity");
+        let status    = this._readFile(this._battery + "/status");
+        let energyNow = this._readFile(this._battery + "/energy_now")  || this._readFile(this._battery + "/charge_now");
+        let energyFul = this._readFile(this._battery + "/energy_full") || this._readFile(this._battery + "/charge_full");
+        let powerNow  = this._readFile(this._battery + "/power_now")   || this._readFile(this._battery + "/current_now");
+        let design    = this._readFile(this._battery + "/energy_full_design") || this._readFile(this._battery + "/charge_full_design");
 
         let percent = capacity ? parseInt(capacity) : 0;
         let isCharging = status === "Charging";
@@ -72,175 +85,200 @@ class BatteryApplet extends Applet.IconApplet {
         let isDischarging = status === "Discharging";
         let timeRemaining = null;
 
-        // Calculate time remaining
         let power = powerNow ? parseInt(powerNow) : 0;
         if (power > 0) {
             let energy = energyNow ? parseInt(energyNow) : 0;
-            let full = energyFull ? parseInt(energyFull) : 0;
-
-            if (isDischarging && energy > 0) {
-                let hours = energy / power;
-                timeRemaining = this._formatTime(hours);
-            } else if (isCharging && full > 0 && energy >= 0) {
-                let hours = (full - energy) / power;
-                timeRemaining = this._formatTime(hours);
-            }
+            let full = energyFul ? parseInt(energyFul) : 0;
+            if (isDischarging && energy > 0) timeRemaining = this._formatTime(energy / power);
+            else if (isCharging && full > 0 && energy >= 0) timeRemaining = this._formatTime((full - energy) / power);
         }
 
-        return {
-            percent: percent,
-            status: status || "Unknown",
-            isCharging: isCharging,
-            isFull: isFull,
-            isDischarging: isDischarging,
-            timeRemaining: timeRemaining
-        };
+        // Battery health: how much of the original capacity is left.
+        let health = null;
+        if (energyFul && design) {
+            let f = parseInt(energyFul), d = parseInt(design);
+            if (d > 0) health = Math.round((f / d) * 100);
+        }
+
+        // Live draw in watts (power_now is µW on energy_* systems).
+        let watts = null;
+        if (power > 0 && energyNow && this._readFile(this._battery + "/power_now")) {
+            watts = (power / 1000000).toFixed(1);
+        }
+
+        return { percent, status: status || "Unknown", isCharging, isFull, isDischarging,
+                 timeRemaining, health, watts };
     }
 
     _formatTime(hours) {
-        if (hours <= 0) return null;
+        if (!isFinite(hours) || hours <= 0) return null;
         let h = Math.floor(hours);
         let m = Math.round((hours - h) * 60);
+        if (m === 60) { h += 1; m = 0; }
         if (h > 0 && m > 0) return h + "h " + m + "m";
         if (h > 0) return h + "h";
         return m + "m";
     }
 
     _getIconName(percent, isCharging, isFull) {
-        if (isFull || (isCharging && percent >= 99)) {
-            return "battery-full-charged-symbolic";
-        }
-
+        if (isFull || (isCharging && percent >= 99)) return "battery-full-charged-symbolic";
         let level;
         if (percent >= 80) level = "full";
         else if (percent >= 50) level = "good";
         else if (percent >= 20) level = "low";
         else if (percent >= 5) level = "caution";
         else level = "empty";
+        return isCharging ? "battery-" + level + "-charging-symbolic" : "battery-" + level + "-symbolic";
+    }
 
-        if (isCharging) {
-            return "battery-" + level + "-charging-symbolic";
-        }
-        return "battery-" + level + "-symbolic";
+    // ------------------------------------------------------------- painting --
+
+    _startPulse() {
+        if (this._pulseId) return;
+        this._pulseId = Mainloop.timeout_add(PULSE_INTERVAL, () => {
+            this._pulseOn = !this._pulseOn;
+            // Green, breathing. Bright on the beat, dimmer off it.
+            let color = this._pulseOn ? "#4ade80" : "#22803f";
+            try {
+                this._applet_icon.set_style("color: " + color + ";");
+                this._applet_label.set_style("color: " + color + "; font-weight: bold;");
+            } catch (e) {}
+            return true;
+        });
+    }
+
+    _stopPulse() {
+        if (this._pulseId) { Mainloop.source_remove(this._pulseId); this._pulseId = 0; }
+        try {
+            this._applet_icon.set_style("");
+            this._applet_label.set_style(this._saver ? "color: #fbbf24;" : "");
+        } catch (e) {}
     }
 
     _update() {
+        this._saver = this._readMode() === "saver";
+
         if (!this._battery) {
-            // Desktop / no battery — show plugged-in state
+            this._stopPulse();
             this.set_applet_icon_symbolic_name("battery-full-charged-symbolic");
+            this.set_applet_label("");
             this.set_applet_tooltip("Always Plugged In — AC Power");
             return;
         }
 
         let info = this._getBatteryInfo();
         if (!info) {
+            this._stopPulse();
             this.set_applet_icon_symbolic_name("battery-missing-symbolic");
+            this.set_applet_label("");
             this.set_applet_tooltip("Battery not found");
             return;
         }
 
-        // Update icon
-        this.set_applet_icon_symbolic_name(
-            this._getIconName(info.percent, info.isCharging, info.isFull)
-        );
+        this.set_applet_icon_symbolic_name(this._getIconName(info.percent, info.isCharging, info.isFull));
 
-        // Update tooltip
+        // The label carries the state at a glance: bolt while charging,
+        // leaf while in battery saver.
+        let label = "";
+        if (info.isCharging)      label = "⚡ " + info.percent + "%";
+        else if (info.isFull)     label = "⚡ " + info.percent + "%";
+        else                      label = info.percent + "%";
+        if (this._saver && !info.isCharging) label = "ECO " + info.percent + "%";
+        this.set_applet_label(label);
+
+        if (info.isCharging) this._startPulse(); else this._stopPulse();
+
         let tooltip = info.percent + "%";
-        if (info.isFull) {
-            tooltip += " — Fully Charged";
-        } else if (info.isCharging) {
+        if (info.isFull) tooltip += " — Fully Charged";
+        else if (info.isCharging) {
             tooltip += " — Charging";
             if (info.timeRemaining) tooltip += " (" + info.timeRemaining + " until full)";
         } else if (info.isDischarging) {
             tooltip += " — On Battery";
-            if (info.timeRemaining) tooltip += " (" + info.timeRemaining + " remaining)";
+            if (info.timeRemaining) tooltip += " (" + info.timeRemaining + " left)";
         }
+        if (this._saver) tooltip += "  •  Battery Saver ON";
         this.set_applet_tooltip(tooltip);
     }
+
+    // ---------------------------------------------------------------- menu --
 
     _buildMenu() {
         this.menu.removeAll();
 
-        // Header
-        let header = new PopupMenu.PopupMenuItem("Power Status", { reactive: false });
+        let header = new PopupMenu.PopupMenuItem("Power", { reactive: false });
         header.label.set_style("font-weight: bold; font-size: 1.1em;");
         this.menu.addMenuItem(header);
         this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
 
         if (!this._battery) {
-            // Desktop mode
-            let items = [
-                ["Status:", "Always Plugged In"],
-                ["Power Source:", "AC Power"]
-            ];
-            for (let [label, value] of items) {
-                let item = new PopupMenu.PopupMenuItem(label + "  " + value, { reactive: false });
-                this.menu.addMenuItem(item);
-            }
+            this.menu.addMenuItem(new PopupMenu.PopupMenuItem("Status:  Always Plugged In", { reactive: false }));
+            this.menu.addMenuItem(new PopupMenu.PopupMenuItem("Power Source:  AC Power", { reactive: false }));
         } else {
-            // Laptop mode — show real battery info
             let info = this._getBatteryInfo();
             if (info) {
-                let statusText;
-                if (info.isFull) statusText = "Fully Charged";
-                else if (info.isCharging) statusText = "Charging";
-                else if (info.isDischarging) statusText = "On Battery";
-                else statusText = info.status;
+                let statusText = info.isFull ? "Fully Charged"
+                               : info.isCharging ? "Charging"
+                               : info.isDischarging ? "On Battery" : info.status;
 
-                let items = [
-                    ["Battery:", info.percent + "%"],
-                    ["Status:", statusText]
-                ];
-
+                let items = [["Battery:", info.percent + "%"], ["Status:", statusText]];
                 if (info.timeRemaining) {
-                    if (info.isCharging) {
-                        items.push(["Time to Full:", info.timeRemaining]);
-                    } else if (info.isDischarging) {
-                        items.push(["Time Remaining:", info.timeRemaining]);
-                    }
+                    items.push([info.isCharging ? "Time to Full:" : "Time Remaining:", info.timeRemaining]);
                 }
-
-                if (info.isCharging || info.isFull) {
-                    items.push(["Power Source:", "AC Power"]);
-                } else {
-                    items.push(["Power Source:", "Battery"]);
-                }
+                if (info.watts) items.push(["Drawing:", info.watts + " W"]);
+                if (info.health !== null) items.push(["Battery Health:", info.health + "%"]);
+                items.push(["Power Source:", (info.isCharging || info.isFull) ? "AC Power" : "Battery"]);
 
                 for (let [label, value] of items) {
-                    let item = new PopupMenu.PopupMenuItem(label + "  " + value, { reactive: false });
-                    this.menu.addMenuItem(item);
+                    this.menu.addMenuItem(new PopupMenu.PopupMenuItem(label + "  " + value, { reactive: false }));
                 }
             }
+
+            this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+
+            // The toggle Dean asked for.
+            let saverSwitch = new PopupMenu.PopupSwitchMenuItem("Battery Saver", this._saver);
+            saverSwitch.connect("toggled", (item, state) => {
+                this._saver = state;
+                Util.spawnCommandLine("47os-powermode " + (state ? "saver" : "balanced"));
+                // sysfs + gsettings take a beat to settle before the label is right.
+                Mainloop.timeout_add_seconds(2, () => { this._update(); return false; });
+            });
+            this.menu.addMenuItem(saverSwitch);
+
+            let hint = new PopupMenu.PopupMenuItem(
+                this._saver ? "Turbo off, effects parked, screen dimmed"
+                            : "Trades speed and effects for runtime",
+                { reactive: false });
+            hint.label.set_style("font-size: 0.85em; opacity: 0.65;");
+            this.menu.addMenuItem(hint);
         }
 
         this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
 
-        // Power settings button
-        let settingsItem = new PopupMenu.PopupMenuItem("Power Settings...");
-        settingsItem.connect("activate", () => {
-            Util.spawnCommandLine("cinnamon-settings power");
-        });
+        let settingsItem = new PopupMenu.PopupIconMenuItem("Power Settings…",
+            "preferences-system-symbolic", St.IconType.SYMBOLIC);
+        settingsItem.connect("activate", () => { Util.spawnCommandLine("cinnamon-settings power"); });
         this.menu.addMenuItem(settingsItem);
     }
 
     _startTimer() {
         this._timerId = Mainloop.timeout_add_seconds(UPDATE_INTERVAL, () => {
             this._update();
-            return true; // keep repeating
+            if (this.menu.isOpen) this._buildMenu();
+            return true;
         });
     }
 
     on_applet_clicked() {
-        this._update(); // refresh before showing
+        this._update();
         this._buildMenu();
         this.menu.toggle();
     }
 
     on_applet_removed_from_panel() {
-        if (this._timerId) {
-            Mainloop.source_remove(this._timerId);
-            this._timerId = null;
-        }
+        if (this._timerId) { Mainloop.source_remove(this._timerId); this._timerId = 0; }
+        if (this._pulseId) { Mainloop.source_remove(this._pulseId); this._pulseId = 0; }
     }
 }
 

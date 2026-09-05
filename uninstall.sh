@@ -197,7 +197,7 @@ echo -e "\n${CYAN}[6/10]${WHITE} Removing 47OS scripts and sounds...${RESET}"
 # Scripts in ~/.local/bin
 for script in 47sound 47transparency 47glass-inject.sh \
               matrix-47.py saber-drag.sh swoosh-watcher.sh 47sound-inject.sh \
-              middle-click-hold.py 47os-face-unlock; do
+              middle-click-hold.py 47os-face-unlock 47os-powermode 47os-update; do
     rm -f "$HOME/.local/bin/$script"
 done
 
@@ -233,6 +233,10 @@ rm -f "$HOME/.local/share/nemo/actions/empty-trash-sound.nemo_action" 2>/dev/nul
 rm -f "$HOME/.local/share/applications/auto-extract.desktop" 2>/dev/null
 rm -f "$HOME/.local/share/applications/soundcloud.desktop" 2>/dev/null
 rm -f "$HOME/.local/share/applications/47os-face-unlock.desktop" 2>/dev/null
+rm -f "$HOME/.local/share/applications/47os-update.desktop" 2>/dev/null
+# Power tools: restore full speed first, then remove the root helper + sudo rule.
+"$HOME/.local/bin/47os-powermode" balanced 2>/dev/null
+sudo rm -f /usr/local/bin/47os-powerctl /etc/sudoers.d/47os-powermode 2>/dev/null
 # Bluetooth: give blueman its own tray icon back and drop the controller tweak.
 rm -f "$HOME/.config/autostart/blueman.desktop" 2>/dev/null
 sudo rm -f /etc/modprobe.d/47os-bluetooth-controllers.conf 2>/dev/null

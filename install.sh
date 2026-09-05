@@ -1038,6 +1038,55 @@ else
 fi
 
 # ============================================================
+# STEP 19: Battery Saver mode + updater
+# ============================================================
+progress "Installing power tools..."
+
+# Root half: exactly two allowed words, no paths. The sudoers rule below
+# grants ONLY this binary, so the panel toggle is passwordless without
+# handing the user session general root.
+if [ -f "$SCRIPT_DIR/system/power/47os-powerctl" ]; then
+    sudo install -m 0755 -o root -g root "$SCRIPT_DIR/system/power/47os-powerctl" /usr/local/bin/47os-powerctl
+    echo "$USER ALL=(root) NOPASSWD: /usr/local/bin/47os-powerctl saver, /usr/local/bin/47os-powerctl balanced" \
+        | sudo tee /etc/sudoers.d/47os-powermode >/dev/null
+    sudo chmod 0440 /etc/sudoers.d/47os-powermode
+    # A bad sudoers file locks sudo for everyone — validate and roll back if so.
+    if ! sudo visudo -cf /etc/sudoers.d/47os-powermode >/dev/null 2>&1; then
+        sudo rm -f /etc/sudoers.d/47os-powermode
+        warn "sudoers rule rejected — Battery Saver will ask for a password."
+    else
+        ok "Battery Saver wired (passwordless, scoped to one command)."
+    fi
+fi
+
+if [ -f "$SCRIPT_DIR/scripts/47os-powermode" ]; then
+    install -m 0755 "$SCRIPT_DIR/scripts/47os-powermode" "$HOME/.local/bin/47os-powermode"
+fi
+
+# Updater: 47os-update from anywhere, no uninstall/reinstall dance.
+if [ -f "$SCRIPT_DIR/update.sh" ]; then
+    cat > "$HOME/.local/bin/47os-update" <<UPDWRAP
+#!/usr/bin/env bash
+exec bash "$SCRIPT_DIR/update.sh" "\$@"
+UPDWRAP
+    chmod 0755 "$HOME/.local/bin/47os-update"
+    mkdir -p "$HOME/.local/share/applications"
+    cat > "$HOME/.local/share/applications/47os-update.desktop" <<UPDDESK
+[Desktop Entry]
+Type=Application
+Name=47OS Update
+Comment=Pull the newest 47OS and re-apply it in place
+Exec=alacritty -e $HOME/.local/bin/47os-update
+Icon=system-software-update
+Terminal=false
+Categories=System;Settings;
+Keywords=update;upgrade;47os;
+UPDDESK
+    update-desktop-database "$HOME/.local/share/applications" 2>/dev/null
+    ok "Updater installed (run: 47os-update, or Menu > 47OS Update)."
+fi
+
+# ============================================================
 # Save install manifest for uninstall
 # ============================================================
 echo "$BACKUP_DIR" > "$HOME/.config/47industries/backup-path"
@@ -1066,6 +1115,8 @@ echo "  - Plank dock (macOS-style, bottom, zoom 175%)"
 echo "  - 7 custom panel applets (battery, wifi, bluetooth, brightness, sound, etc.)"
 echo "  - Bluetooth: controllers, headphones, peripherals (panel applet)"
 echo "  - Face Unlock setup app (Menu > Preferences > Face Unlock)"
+echo "  - Battery Saver toggle in the battery applet + charging pulse"
+echo "  - 47os-update — updates in place, no uninstall needed"
 echo "  - Wobbly windows + Glide open/close + Genie minimize"
 echo "  - 47 Sound system (sounds on all actions)"
 echo "  - Transparency toggle (Ctrl+Shift+T)"

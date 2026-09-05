@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+# 47OS power mode switcher (user side).
+#   47os-powermode saver | balanced | toggle | status
+# The root half lives in /usr/local/bin/47os-powerctl and is the ONLY thing
+# the sudoers rule allows, so this toggle never asks for a password and never
+# hands out general root.
+set -uo pipefail
+
+STATE_DIR="$HOME/.config/47industries"
+STATE="$STATE_DIR/power-mode"
+mkdir -p "$STATE_DIR" 2>/dev/null
+have() { command -v "$1" >/dev/null 2>&1; }
+
+apply_saver() {
+    sudo -n /usr/local/bin/47os-powerctl saver 2>/dev/null || /usr/local/bin/47os-powerctl saver 2>/dev/null
+
+    # The rice itself is a real power draw — park the GPU work.
+    gsettings get org.cinnamon enabled-extensions > "$STATE_DIR/extensions-before-saver" 2>/dev/null
+    gsettings set org.cinnamon enabled-extensions "[]" 2>/dev/null
+    gsettings set org.cinnamon desktop-effects false 2>/dev/null
+    gsettings set org.cinnamon startup-animation false 2>/dev/null
+
+    # Screen is usually the single biggest consumer on a laptop.
+    if have brightnessctl; then
+        brightnessctl -m 2>/dev/null | cut -d, -f4 | tr -d '%' > "$STATE_DIR/brightness-before-saver"
+        brightnessctl set 40% >/dev/null 2>&1
+    fi
+    gsettings set org.cinnamon.settings-daemon.plugins.power sleep-display-battery 120 2>/dev/null
+
+    echo saver > "$STATE"
+    have notify-send && notify-send -i battery-good-symbolic "Battery Saver ON" \
+        "Turbo off, effects parked, screen dimmed."
+}
+
+apply_balanced() {
+    sudo -n /usr/local/bin/47os-powerctl balanced 2>/dev/null || /usr/local/bin/47os-powerctl balanced 2>/dev/null
+
+    if [ -s "$STATE_DIR/extensions-before-saver" ]; then
+        gsettings set org.cinnamon enabled-extensions "$(cat "$STATE_DIR/extensions-before-saver")" 2>/dev/null
+    fi
+    gsettings set org.cinnamon desktop-effects true 2>/dev/null
+    gsettings set org.cinnamon startup-animation true 2>/dev/null
+    if have brightnessctl && [ -s "$STATE_DIR/brightness-before-saver" ]; then
+        brightnessctl set "$(cat "$STATE_DIR/brightness-before-saver")%" >/dev/null 2>&1
+    fi
+    gsettings set org.cinnamon.settings-daemon.plugins.power sleep-display-battery 600 2>/dev/null
+
+    echo balanced > "$STATE"
+    have notify-send && notify-send -i battery-full-symbolic "Battery Saver OFF" \
+        "Full speed and effects restored."
+}
+
+case "${1:-status}" in
+    saver)    apply_saver ;;
+    balanced) apply_balanced ;;
+    toggle)   if [ "$(cat "$STATE" 2>/dev/null)" = "saver" ]; then apply_balanced; else apply_saver; fi ;;
+    status)   cat "$STATE" 2>/dev/null || echo balanced ;;
+    *)        echo "usage: 47os-powermode {saver|balanced|toggle|status}" >&2; exit 2 ;;
+esac
