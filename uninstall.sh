@@ -304,3 +304,11 @@ echo "since they don't affect anything. To remove them too:"
 echo "  rm -rf ~/.themes/WhiteSur-*"
 echo "  rm -rf ~/.local/share/icons/WhiteSur-*"
 echo ""
+
+# Remove the 47 OS login-screen failsafe
+sudo rm -f /etc/systemd/system/lightdm.service.d/47os-failsafe.conf
+sudo rm -f /etc/systemd/system/47os-greeter-revert.service
+sudo rm -f /usr/local/bin/47os-greeter-revert.sh
+sudo rm -f /etc/lightdm/lightdm.conf.d/50-greeter.conf.failed
+sudo rmdir /etc/systemd/system/lightdm.service.d 2>/dev/null
+sudo systemctl daemon-reload 2>/dev/null

@@ -1,0 +1,7 @@
+[Unit]
+Description=47 OS — restore stock login screen if the custom greeter failed
+DefaultDependencies=no
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/47os-greeter-revert.sh

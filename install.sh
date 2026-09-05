@@ -627,6 +627,23 @@ if [ -d "$SCRIPT_DIR/system/web-greeter/themes/47-macos" ]; then
         fi
     fi
 
+    # --- FAILSAFE: arm the revert BEFORE swapping the greeter ---
+    # If the custom greeter ever fails to start, systemd restores the stock
+    # greeter automatically. Without this, a bad greeter = black screen,
+    # no login, on a machine you may have no other way into.
+    if [ -f "$SCRIPT_DIR/system/failsafe/47os-greeter-revert.sh" ]; then
+        sudo install -m 0755 "$SCRIPT_DIR/system/failsafe/47os-greeter-revert.sh" /usr/local/bin/47os-greeter-revert.sh
+        sudo install -m 0644 "$SCRIPT_DIR/system/failsafe/47os-greeter-revert.service" /etc/systemd/system/47os-greeter-revert.service
+        sudo mkdir -p /etc/systemd/system/lightdm.service.d
+        sudo install -m 0644 "$SCRIPT_DIR/system/failsafe/47os-failsafe.conf" /etc/systemd/system/lightdm.service.d/47os-failsafe.conf
+        sudo systemctl daemon-reload 2>/dev/null
+        ok "Login-screen failsafe armed (auto-reverts if the custom greeter fails)."
+    else
+        warn "Failsafe files missing — skipping custom greeter to avoid a no-login boot."
+        GREETER_BIN=""
+        SKIP_GREETER=1
+    fi
+
     # Determine which greeter binary is available
     GREETER_BIN=""
     if command -v web-greeter &>/dev/null; then
@@ -635,7 +652,7 @@ if [ -d "$SCRIPT_DIR/system/web-greeter/themes/47-macos" ]; then
         GREETER_BIN="nody-greeter"
     fi
 
-    if [ -n "$GREETER_BIN" ]; then
+    if [ -n "$GREETER_BIN" ] && [ -z "${SKIP_GREETER:-}" ]; then
         # Install the 47-macos theme (check both possible theme dirs)
         THEME_DIR="/usr/share/web-greeter/themes"
         [ "$GREETER_BIN" = "nody-greeter" ] && [ -d "/usr/share/nody-greeter/themes" ] && THEME_DIR="/usr/share/nody-greeter/themes"
