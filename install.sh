@@ -192,6 +192,47 @@ else
 fi
 
 # ============================================================
+# STEP 1b: Battery/power management (laptops)
+# ============================================================
+progress "Setting up power management (TLP + powertop auto-tune)..."
+
+# TLP is the actual battery-life fix. The rice previously shipped zero
+# power-management tooling while adding always-on GPU compositing effects
+# (wobbly windows, BurnMyWindows, MagicLamp) and a devilspie2 transparency
+# daemon — net effect was worse battery life, not better.
+if sudo apt install -y tlp tlp-rdw powertop 2>/dev/null; then
+    ok "TLP + powertop installed."
+else
+    warn "TLP install failed — battery tuning skipped."
+fi
+
+# power-profiles-daemon fights with TLP over the same knobs if both run.
+if systemctl is-active --quiet power-profiles-daemon 2>/dev/null; then
+    sudo systemctl disable --now power-profiles-daemon 2>/dev/null
+    warn "Disabled power-profiles-daemon (conflicts with TLP)."
+fi
+
+sudo systemctl enable --now tlp.service 2>/dev/null && ok "TLP enabled." || warn "Could not enable TLP."
+
+# powertop --auto-tune has to re-run every boot (its tunables don't persist).
+sudo tee /etc/systemd/system/47os-powertop-autotune.service > /dev/null 2>/dev/null <<'POWERTOPUNIT'
+[Unit]
+Description=47OS - powertop auto-tune on boot
+After=multi-user.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/sbin/powertop --auto-tune
+
+[Install]
+WantedBy=multi-user.target
+POWERTOPUNIT
+sudo systemctl daemon-reload 2>/dev/null
+sudo systemctl enable --now 47os-powertop-autotune.service 2>/dev/null && ok "powertop auto-tune armed (runs every boot)." || warn "powertop auto-tune unit failed to enable."
+
+ok "Done."
+
+# ============================================================
 # STEP 2: Install WhiteSur GTK Theme
 # ============================================================
 progress "Installing WhiteSur GTK theme..."

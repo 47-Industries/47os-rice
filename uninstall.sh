@@ -102,6 +102,18 @@ done
 echo -e "  ${GREEN}Done.${RESET}"
 
 # ============================================================
+# 3b. Remove 47OS power-management unit
+# ============================================================
+echo -e "\n${CYAN}[*]${WHITE} Removing powertop auto-tune service...${RESET}"
+if [ -f /etc/systemd/system/47os-powertop-autotune.service ]; then
+    sudo systemctl disable --now 47os-powertop-autotune.service 2>/dev/null
+    sudo rm -f /etc/systemd/system/47os-powertop-autotune.service
+    sudo systemctl daemon-reload 2>/dev/null
+    echo -e "  ${GREEN}Removed.${RESET}"
+fi
+echo -e "  ${YELLOW}Note: TLP itself is left installed — it's a genuine battery-life improvement independent of the rice, same as the fonts/theme. Remove manually with: sudo apt remove tlp tlp-rdw${RESET}"
+
+# ============================================================
 # 4. Restore backed-up config files
 # ============================================================
 echo -e "\n${CYAN}[4/10]${WHITE} Restoring config files...${RESET}"
