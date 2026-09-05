@@ -111,6 +111,7 @@ if [ -f /etc/systemd/system/47os-powertop-autotune.service ]; then
     sudo systemctl daemon-reload 2>/dev/null
     echo -e "  ${GREEN}Removed.${RESET}"
 fi
+sudo rm -f /etc/tlp.d/47os-power.conf 2>/dev/null && sudo systemctl restart tlp.service 2>/dev/null
 echo -e "  ${YELLOW}Note: TLP itself is left installed — it's a genuine battery-life improvement independent of the rice, same as the fonts/theme. Remove manually with: sudo apt remove tlp tlp-rdw${RESET}"
 
 # ============================================================

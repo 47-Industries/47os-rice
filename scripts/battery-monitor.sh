@@ -64,7 +64,10 @@ while true; do
     fi
 
     # Reset warnings + restore effects when charging
-    if [ "$STATUS" = "Charging" ] || [ "$STATUS" = "Full" ]; then
+    if [ "$STATUS" != "Discharging" ]; then
+        # Anything that is not actively discharging means we are on AC.
+        # Dell/Lenovo report "Not charging" when sitting at a charge limit -
+        # matching only Charging/Full leaves effects off forever on AC.
         WARNED_20=false
         WARNED_10=false
         WARNED_5=false

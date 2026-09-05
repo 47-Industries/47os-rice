@@ -194,7 +194,7 @@ fi
 # ============================================================
 # STEP 1b: Battery/power management (laptops)
 # ============================================================
-progress "Setting up power management (TLP + powertop auto-tune)..."
+progress "Setting up power management (TLP)..."
 
 # TLP is the actual battery-life fix. The rice previously shipped zero
 # power-management tooling while adding always-on GPU compositing effects
@@ -214,21 +214,44 @@ fi
 
 sudo systemctl enable --now tlp.service 2>/dev/null && ok "TLP enabled." || warn "Could not enable TLP."
 
-# powertop --auto-tune has to re-run every boot (its tunables don't persist).
-sudo tee /etc/systemd/system/47os-powertop-autotune.service > /dev/null 2>/dev/null <<'POWERTOPUNIT'
-[Unit]
-Description=47OS - powertop auto-tune on boot
-After=multi-user.target
+# DO NOT blanket-run `powertop --auto-tune` at boot. It switches on USB
+# autosuspend for EVERY device indiscriminately, which is the classic cause of
+# "my wireless mouse randomly stops responding", dead USB keyboards, and
+# webcams that won't wake. Measured on a real 47 OS box: USB Optical Mouse,
+# Gaming Keyboard and an HD Pro Webcam C920 all sit on USB and would all be
+# suspended by it. TLP already delivers the actual battery wins (CPU
+# energy-perf policy, SATA ALPM, PCIe ASPM, wifi power save, runtime PM)
+# without that footgun, so we let TLP own power management and keep powertop
+# installed purely as a diagnostic (`sudo powertop`).
+sudo mkdir -p /etc/tlp.d
+sudo tee /etc/tlp.d/47os-power.conf > /dev/null 2>&1 <<'TLPCONF'
+# 47 OS power tuning. Safe defaults: real battery savings, no input-device
+# suspends. Written by 47os-rice install.sh.
 
-[Service]
-Type=oneshot
-ExecStart=/usr/sbin/powertop --auto-tune
+# Keep USB autosuspend OFF. This is the setting that breaks mice, keyboards,
+# webcams and dongles. The battery it saves is negligible next to the CPU and
+# PCIe knobs below.
+USB_AUTOSUSPEND=0
 
-[Install]
-WantedBy=multi-user.target
-POWERTOPUNIT
-sudo systemctl daemon-reload 2>/dev/null
-sudo systemctl enable --now 47os-powertop-autotune.service 2>/dev/null && ok "powertop auto-tune armed (runs every boot)." || warn "powertop auto-tune unit failed to enable."
+# The knobs that actually matter on battery.
+CPU_ENERGY_PERF_POLICY_ON_BAT=power
+CPU_SCALING_GOVERNOR_ON_BAT=powersave
+CPU_BOOST_ON_BAT=0
+PLATFORM_PROFILE_ON_BAT=low-power
+SATA_LINKPWR_ON_BAT=med_power_with_dipm
+PCIE_ASPM_ON_BAT=powersupersave
+WIFI_PWR_ON_BAT=on
+RUNTIME_PM_ON_BAT=auto
+DISK_APM_LEVEL_ON_BAT="128 128"
+
+# On AC, don't handicap the machine.
+CPU_ENERGY_PERF_POLICY_ON_AC=performance
+CPU_SCALING_GOVERNOR_ON_AC=performance
+CPU_BOOST_ON_AC=1
+WIFI_PWR_ON_AC=off
+TLPCONF
+sudo systemctl restart tlp.service 2>/dev/null
+ok "TLP tuned (USB autosuspend deliberately OFF - keeps mice/keyboards/webcams alive)."
 
 ok "Done."
 
