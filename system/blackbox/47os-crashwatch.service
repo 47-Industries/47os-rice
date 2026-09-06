@@ -1,0 +1,13 @@
+[Unit]
+Description=47OS crash watch — report a lockup on the way back up
+After=network-online.target graphical.target 47os-blackbox.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/47os-crashwatch
+RemainAfterExit=no
+TimeoutStartSec=60
+
+[Install]
+WantedBy=multi-user.target

@@ -105,12 +105,15 @@ echo -e "  ${GREEN}Done.${RESET}"
 # 3b. Remove 47OS power-management unit
 # ============================================================
 echo -e "\n${CYAN}[*]${WHITE} Removing black box recorder...${RESET}"
-if [ -f /etc/systemd/system/47os-blackbox.service ]; then
-    sudo systemctl disable --now 47os-blackbox.service 2>/dev/null
-    sudo rm -f /etc/systemd/system/47os-blackbox.service
-    sudo systemctl daemon-reload 2>/dev/null
-fi
-sudo rm -f /usr/local/bin/47os-blackbox /usr/local/bin/47os-freeze
+for svc in 47os-blackbox 47os-crashwatch; do
+    if [ -f "/etc/systemd/system/$svc.service" ]; then
+        sudo systemctl disable --now "$svc.service" 2>/dev/null
+        sudo rm -f "/etc/systemd/system/$svc.service"
+    fi
+done
+sudo systemctl daemon-reload 2>/dev/null
+sudo rm -f /usr/local/bin/47os-blackbox /usr/local/bin/47os-freeze /usr/local/bin/47os-crashwatch
+sudo rm -rf /var/lib/47os /etc/47os
 rm -f "$HOME/.local/bin/47os-freeze"
 # The freeze guard is ours, so it goes with us — including the boot options,
 # which must be un-staged with update-grub or they outlive the uninstall.

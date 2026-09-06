@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+# Runs ONCE at boot. If the previous session ended without a clean shutdown,
+# say so — on the desktop, and optionally to a remote endpoint.
+#
+# Why: the black box is useless if nobody reads it. Without this, the loop is
+# "it freezes -> you reboot -> you eventually mention it -> I ask you to run a
+# command -> we look." Four steps and a human memory in the middle. This
+# collapses it to zero: the machine reports its own death on the way back up.
+#
+# NOTE ON SECRETS: this repo is PUBLIC. There is no URL, host, key or address
+# in this file. The endpoint lives in /etc/47os/blackbox-report.conf, which is
+# never committed. No config, no POST, no complaints.
+set -uo pipefail
+
+LOG=/var/log/47os/blackbox.log
+CONF=/etc/47os/blackbox-report.conf
+STAMP=/var/lib/47os/last-crash-reported
+
+[ -r "$LOG" ] || exit 0
+mkdir -p /var/lib/47os 2>/dev/null
+
+# Ask the analyser for the last unexplained death, machine-readable.
+SUMMARY="$(python3 - "$LOG" <<'PY'
+import sys, json
+segs, cur = [], None
+for line in open(sys.argv[1], errors="replace"):
+    line = line.rstrip("\n")
+    if line.startswith("### 47OS black box start"):
+        cur = {"start": line, "lines": [], "clean": False}; segs.append(cur)
+    elif line.startswith("### CLEAN_STOP"):
+        if cur: cur["clean"] = True
+    elif cur is not None and line.strip():
+        cur["lines"].append(line)
+# The session that just ended is segs[-2]; segs[-1] is the one booting now.
+# If the recorder has not started this boot yet, the last one is segs[-1].
+past = segs[:-1] if len(segs) > 1 else []
+crashes = [s for s in past if not s["clean"] and s["lines"]]
+if not crashes:
+    print(""); raise SystemExit
+s = crashes[-1]
+last = s["lines"][-1]
+f = dict(p.split("=", 1) for p in last.split() if "=" in p)
+print(json.dumps({
+    "died_at": last.split()[0],
+    "on_battery": f.get("ac") == "0",
+    "battery_pct": f.get("bat"),
+    "temp_c": f.get("tempC"),
+    "cpu_mhz": f.get("mhz"),
+    "governor": f.get("gov"),
+    "dgpu": f.get("gpu"),
+    "aspm": f.get("aspm"),
+    "load": f.get("load"),
+    "uptime_at_death_s": f.get("up"),
+    "total_deaths": len(crashes),
+    "tail": s["lines"][-8:],
+}))
+PY
+)"
+
+[ -n "$SUMMARY" ] || exit 0
+
+# Report each death once, not on every boot forever.
+DIED="$(printf '%s' "$SUMMARY" | python3 -c 'import sys,json; print(json.load(sys.stdin)["died_at"])' 2>/dev/null)"
+[ -n "$DIED" ] || exit 0
+[ "$(cat "$STAMP" 2>/dev/null)" = "$DIED" ] && exit 0
+printf '%s' "$DIED" > "$STAMP"
+
+# Tell whoever is sitting at the machine. Needs to reach the user's session,
+# not root's, or the notification goes nowhere.
+BATT="$(printf '%s' "$SUMMARY" | python3 -c 'import sys,json; d=json.load(sys.stdin); print("on battery" if d["on_battery"] else "plugged in")' 2>/dev/null)"
+GPU="$(printf '%s' "$SUMMARY" | python3 -c 'import sys,json; print(json.load(sys.stdin)["dgpu"])' 2>/dev/null)"
+for u in $(loginctl list-users --no-legend 2>/dev/null | awk '{print $2}'); do
+    uid="$(id -u "$u" 2>/dev/null)" || continue
+    sudo -u "$u" DISPLAY=:0 \
+        DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$uid/bus" \
+        notify-send -u critical -i dialog-warning \
+        "Last session ended in a lockup" \
+        "Died $DIED, $BATT, GPU $GPU. Run: 47os-freeze report" 2>/dev/null
+done
+
+# Optional remote report. Absent config = do nothing at all.
+if [ -r "$CONF" ]; then
+    # shellcheck disable=SC1090
+    . "$CONF"
+    if [ -n "${REPORT_URL:-}" ]; then
+        curl -fsS --max-time 20 -X POST "$REPORT_URL" \
+            -H 'Content-Type: application/json' \
+            ${REPORT_AUTH:+-H "Authorization: Bearer $REPORT_AUTH"} \
+            --data-binary "$SUMMARY" >/dev/null 2>&1 \
+            && logger -t 47os-crashwatch "reported lockup at $DIED" \
+            || logger -t 47os-crashwatch "lockup at $DIED — report POST failed"
+    fi
+fi
+exit 0

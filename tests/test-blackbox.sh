@@ -50,5 +50,46 @@ out=$("$TMP/fz" report 2>&1)
 echo "$out" | grep -q 'No unexplained deaths' \
   && ok "clean shutdown does not raise a false alarm" || { no "cried wolf on a clean shutdown"; echo "$out" | sed 's/^/      | /'; }
 
-echo ""; echo "  $pass passed, $fail failed"
+echo "== 4. crashwatch reports a lockup once, and never on a clean boot =="
+CW="$HERE/../scripts/47os-crashwatch"
+sed -e "s#^LOG=/var/log/47os/blackbox.log#LOG=$FAKE#" \
+    -e "s#^CONF=/etc/47os/blackbox-report.conf#CONF=$TMP/report.conf#" \
+    -e "s#^STAMP=/var/lib/47os/last-crash-reported#STAMP=$TMP/stamp#" \
+    "$CW" > "$TMP/cw"; chmod +x "$TMP/cw"
+
+# A clean-shutdown-only record must produce no report at all.
+rm -f "$FAKE" "$TMP/stamp"
+run_recorder 0.6; kill -TERM "$BBPID" 2>/dev/null; wait "$BBPID" 2>/dev/null
+"$TMP/bb" --stop
+run_recorder 0.4; kill -TERM "$BBPID" 2>/dev/null; wait "$BBPID" 2>/dev/null
+"$TMP/cw" >/dev/null 2>&1
+[ ! -s "$TMP/stamp" ] && ok "clean history: nothing reported" || no "reported a death that never happened"
+
+# Now a real hard death, with a report endpoint configured.
+rm -f "$FAKE" "$TMP/stamp"
+run_recorder 0.6; kill -KILL "$BBPID" 2>/dev/null; wait "$BBPID" 2>/dev/null
+run_recorder 0.4; kill -TERM "$BBPID" 2>/dev/null; wait "$BBPID" 2>/dev/null
+cat > "$TMP/report.conf" <<CONF
+REPORT_URL=file://$TMP/never
+CONF
+"$TMP/cw" >/dev/null 2>&1
+[ -s "$TMP/stamp" ] && ok "hard death: stamped $(cat "$TMP/stamp")" || no "did not detect the death"
+
+# Second boot with the same record must NOT re-report the same death.
+BEFORE="$(cat "$TMP/stamp" 2>/dev/null)"
+"$TMP/cw" >/dev/null 2>&1
+[ "$(cat "$TMP/stamp" 2>/dev/null)" = "$BEFORE" ] && ok "does not nag about the same death twice" || no "re-reported"
+
+# And with NO config file it must still work and stay silent about the network.
+rm -f "$TMP/report.conf" "$TMP/stamp"
+"$TMP/cw" >/dev/null 2>&1 && ok "no config file: exits clean, no POST" || no "crashed without a config"
+
+# The public repo must contain no owner constants. This is a dox check.
+if grep -rEq '100\.(64|67|76|79)\.[0-9]+\.[0-9]+|deansabr|sabrtechnologies\.com|[0-9]{2} 18th Ave' "$CW" "$BB" "$FZ"; then
+    no "OWNER CONSTANT LEAKED into a public-repo script"
+else
+    ok "no IPs, hostnames, usernames or domains in the shipped scripts"
+fi
+
+echo ""; echo "  final: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

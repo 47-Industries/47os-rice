@@ -1104,6 +1104,20 @@ if [ -f "$SCRIPT_DIR/scripts/47os-blackbox" ]; then
             || warn "Black box service did not start."
     fi
 
+    # Crash watch: the black box is useless if nobody reads it. This runs once
+    # at boot and pops a notification if the last session ended in a lockup,
+    # so a freeze reports itself instead of waiting to be remembered.
+    if [ -f "$SCRIPT_DIR/scripts/47os-crashwatch" ]; then
+        sudo install -m 0755 "$SCRIPT_DIR/scripts/47os-crashwatch" /usr/local/bin/47os-crashwatch 2>/dev/null
+        if [ -f "$SCRIPT_DIR/system/blackbox/47os-crashwatch.service" ]; then
+            sudo install -m 0644 "$SCRIPT_DIR/system/blackbox/47os-crashwatch.service" \
+                /etc/systemd/system/47os-crashwatch.service 2>/dev/null
+            sudo systemctl daemon-reload 2>/dev/null
+            sudo systemctl enable 47os-crashwatch.service 2>/dev/null \
+                && ok "Crash watch armed (a lockup announces itself at next boot)."
+        fi
+    fi
+
     # A hard lockup can still leave a kernel message behind IF the journal is
     # persistent. On a volatile journal `journalctl -b -1` has nothing at all,
     # which is how you end up with a freeze and zero evidence.
