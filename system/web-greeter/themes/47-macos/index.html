@@ -462,10 +462,10 @@ window.addEventListener('GreeterReady', function() {
         window.lightdm.authentication_complete.connect(authentication_complete);
         window.lightdm.autologin_timer_expired.connect(autologin_timer_expired);
         start_authentication();
-        try {
-            var snd = document.getElementById('login-sound');
-            snd.play().catch(function(){});
-        } catch(e2) {}
+        /* Boot sound is played ONCE, by Cinnamon after login
+           (org.cinnamon.sounds login-file). The greeter used to play it too,
+           so it fired twice: once when the login screen drew, again after
+           Enter. Dean wants the second one only. 2026-09-05. */
     } catch(e) {
         var d = document.getElementById('debug');
         if (d) { d.style.display = 'block'; d.textContent = 'GreeterReady error: ' + e.message; }

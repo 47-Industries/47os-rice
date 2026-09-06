@@ -867,8 +867,14 @@ cat > "$HOME/.config/47industries/apply-rice.sh" <<'APPLYSCRIPT'
 
 sleep 5  # Wait for Cinnamon to fully load
 
-INSTALL_DIR=$(cat "$HOME/.config/47industries/install-path" 2>/dev/null)
-[ -z "$INSTALL_DIR" ] && INSTALL_DIR="$HOME/47os-rice"
+# Resolve from the checkout we are ACTUALLY running from. install-path is
+# written at the very END of this script, so on a first install it is empty
+# here and the old fallback ($HOME/47os-rice) silently missed the INI for
+# anyone who cloned anywhere else — which meant panels-enabled and the applet
+# layout never got applied at all. 2026-09-05.
+INSTALL_DIR="$SCRIPT_DIR"
+[ -f "$INSTALL_DIR/config/dconf/user-settings.ini" ] || INSTALL_DIR=$(cat "$HOME/.config/47industries/install-path" 2>/dev/null)
+[ -n "$INSTALL_DIR" ] && [ -f "$INSTALL_DIR/config/dconf/user-settings.ini" ] || INSTALL_DIR="$HOME/47os-rice"
 
 # Load user-specific settings (keybindings with $HOME paths, plank, etc.)
 INI="$INSTALL_DIR/config/dconf/user-settings.ini"
@@ -1061,6 +1067,24 @@ fi
 
 if [ -f "$SCRIPT_DIR/scripts/47os-powermode" ]; then
     install -m 0755 "$SCRIPT_DIR/scripts/47os-powermode" "$HOME/.local/bin/47os-powermode"
+fi
+
+# Repair: one command to put the desktop layout back without a reinstall.
+if [ -f "$SCRIPT_DIR/scripts/47os-repair" ]; then
+    install -m 0755 "$SCRIPT_DIR/scripts/47os-repair" "$HOME/.local/bin/47os-repair"
+    mkdir -p "$HOME/.local/share/applications"
+    cat > "$HOME/.local/share/applications/47os-repair.desktop" <<REPDESK
+[Desktop Entry]
+Type=Application
+Name=47OS Repair
+Comment=Put the panel, applets and menu icon back the way they should be
+Exec=alacritty -e $HOME/.local/bin/47os-repair
+Icon=preferences-desktop
+Terminal=false
+Categories=System;Settings;
+Keywords=repair;fix;panel;applet;47os;
+REPDESK
+    ok "Repair tool installed (run: 47os-repair)."
 fi
 
 # Updater: 47os-update from anywhere, no uninstall/reinstall dance.

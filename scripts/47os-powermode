@@ -14,9 +14,12 @@ have() { command -v "$1" >/dev/null 2>&1; }
 apply_saver() {
     sudo -n /usr/local/bin/47os-powerctl saver 2>/dev/null || /usr/local/bin/47os-powerctl saver 2>/dev/null
 
-    # The rice itself is a real power draw — park the GPU work.
-    gsettings get org.cinnamon enabled-extensions > "$STATE_DIR/extensions-before-saver" 2>/dev/null
-    gsettings set org.cinnamon enabled-extensions "[]" 2>/dev/null
+    # NEVER write enabled-extensions here. Unloading window-animation
+    # extensions (compiz-windows-effect, MagicLamp, BurnMyWindows) live can
+    # take Cinnamon down with it, and a Cinnamon that dies mid-write comes
+    # back on stock Mint defaults: panel on the BOTTOM, Mint logo on the menu.
+    # Turbo-off is the real battery win anyway; the GPU parking was worth
+    # single-digit minutes and cost the whole desktop. 2026-09-05.
     gsettings set org.cinnamon desktop-effects false 2>/dev/null
     gsettings set org.cinnamon startup-animation false 2>/dev/null
 
@@ -35,8 +38,12 @@ apply_saver() {
 apply_balanced() {
     sudo -n /usr/local/bin/47os-powerctl balanced 2>/dev/null || /usr/local/bin/47os-powerctl balanced 2>/dev/null
 
-    if [ -s "$STATE_DIR/extensions-before-saver" ]; then
-        gsettings set org.cinnamon enabled-extensions "$(cat "$STATE_DIR/extensions-before-saver")" 2>/dev/null
+    # Heal an install that ran the OLD saver and got its extensions emptied.
+    if [ "$(gsettings get org.cinnamon enabled-extensions 2>/dev/null)" = "@as []" ] \
+       || [ "$(gsettings get org.cinnamon enabled-extensions 2>/dev/null)" = "[]" ]; then
+        if [ -s "$STATE_DIR/extensions-before-saver" ]; then
+            gsettings set org.cinnamon enabled-extensions "$(cat "$STATE_DIR/extensions-before-saver")" 2>/dev/null
+        fi
     fi
     gsettings set org.cinnamon desktop-effects true 2>/dev/null
     gsettings set org.cinnamon startup-animation true 2>/dev/null

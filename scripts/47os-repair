@@ -1,0 +1,91 @@
+#!/usr/bin/env bash
+# 47OS panel repair — put the desktop back without reinstalling anything.
+#
+# Why this exists: the old Battery Saver wrote an empty enabled-extensions
+# list. Unloading the window-animation extensions live can take Cinnamon down,
+# and a Cinnamon that dies mid-write comes back on stock Mint defaults —
+# panel on the BOTTOM, Mint logo on the menu, custom applets gone. This
+# re-applies the 47OS desktop layout from the repo and restarts Cinnamon.
+# It touches NOTHING else: no files, no accounts, no packages.
+set -uo pipefail
+
+CYAN='\033[38;2;0;255;255m'; GREEN='\033[38;2;0;255;150m'
+YELLOW='\033[38;2;255;200;0m'; RED='\033[38;2;255;80;80m'; WHITE='\033[1;37m'; RESET='\033[0m'
+say()  { echo -e "${CYAN}::${RESET} $1"; }
+ok()   { echo -e "  ${GREEN}✓${RESET} $1"; }
+warn() { echo -e "  ${YELLOW}!${RESET} $1"; }
+die()  { echo -e "  ${RED}✗${RESET} $1"; exit 1; }
+
+[ "$(id -u)" -eq 0 ] && die "Don't run this with sudo. Run it as yourself."
+
+echo ""; echo -e "${WHITE}  47OS Repair${RESET}"; echo ""
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DIR=""
+for cand in "$SCRIPT_DIR/.." "$(cat "$HOME/.config/47industries/install-path" 2>/dev/null)" "$HOME/47os-rice"; do
+    [ -n "$cand" ] && [ -f "$cand/config/dconf/user-settings.ini" ] && { DIR="$(cd "$cand" && pwd)"; break; }
+done
+[ -n "$DIR" ] || die "Can't find the 47OS checkout. Run 47os-update first."
+say "Using $DIR"
+
+# 1. Battery Saver back to balanced so nothing re-parks the desktop underneath us.
+if [ "$(cat "$HOME/.config/47industries/power-mode" 2>/dev/null)" = "saver" ]; then
+    sudo -n /usr/local/bin/47os-powerctl balanced 2>/dev/null
+    echo balanced > "$HOME/.config/47industries/power-mode"
+    ok "Battery Saver switched off."
+fi
+
+# 2. Extensions — only rewrite if they were actually emptied.
+EXT="$(gsettings get org.cinnamon enabled-extensions 2>/dev/null)"
+if [ "$EXT" = "@as []" ] || [ "$EXT" = "[]" ]; then
+    SAVED="$(cat "$HOME/.config/47industries/extensions-before-saver" 2>/dev/null)"
+    if [ -n "$SAVED" ] && [ "$SAVED" != "@as []" ] && [ "$SAVED" != "[]" ]; then
+        gsettings set org.cinnamon enabled-extensions "$SAVED" 2>/dev/null
+        ok "Extensions restored from your saved list."
+    else
+        gsettings set org.cinnamon enabled-extensions \
+          "['compiz-windows-effect@hermes83.github.com', 'CinnamonMagicLamp@klangman', 'CinnamonBurnMyWindows@klangman']" 2>/dev/null
+        ok "Extensions restored to the 47OS set."
+    fi
+else
+    ok "Extensions were fine — left alone."
+fi
+gsettings set org.cinnamon desktop-effects true 2>/dev/null
+gsettings set org.cinnamon startup-animation true 2>/dev/null
+
+# 3. The actual panel: position, applet order, icon sizes.
+INI="$DIR/config/dconf/user-settings.ini"
+BEFORE="$(dconf read /org/cinnamon/panels-enabled 2>/dev/null)"
+sed "s|HOMEDIR|$HOME|g" "$INI" | dconf load / || die "dconf load failed."
+AFTER="$(dconf read /org/cinnamon/panels-enabled 2>/dev/null)"
+ok "Panel layout re-applied: $BEFORE -> $AFTER"
+
+# 4. Menu icon — Cinnamon regenerates this json, so patch it every time.
+MENU_CFG="$HOME/.config/cinnamon/spices/menu@cinnamon.org/0.json"
+ICON="$HOME/Documents/47industries/panel-icon.png"
+if [ -f "$MENU_CFG" ] && [ -f "$ICON" ] && command -v python3 >/dev/null 2>&1; then
+    python3 - "$MENU_CFG" "$ICON" <<'PY' && ok "Menu icon set back to the 47 mark."
+import json, sys
+cfg, icon = sys.argv[1], sys.argv[2]
+d = json.load(open(cfg))
+d.setdefault('menu-custom', {})['value'] = True
+d.setdefault('menu-icon', {})['value'] = icon
+d.setdefault('menu-icon-size', {})['value'] = 32
+json.dump(d, open(cfg, 'w'), indent=4)
+PY
+else
+    warn "Menu icon config not found yet — it'll be set on next login."
+fi
+
+# 5. Restart Cinnamon so the panel redraws now instead of at next login.
+say "Restarting Cinnamon (screen will flicker once)..."
+if command -v cinnamon-dbus-command >/dev/null 2>&1; then
+    cinnamon-dbus-command RestartCinnamon 1 >/dev/null 2>&1 || nohup cinnamon --replace >/dev/null 2>&1 &
+else
+    nohup cinnamon --replace >/dev/null 2>&1 &
+fi
+sleep 4
+echo ""
+ok "Repair complete."
+echo -e "${WHITE}  If the panel is still wrong, log out and back in — the layout is saved.${RESET}"
+echo ""
