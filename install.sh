@@ -1096,7 +1096,20 @@ fi
 if [ -f "$SCRIPT_DIR/update.sh" ]; then
     cat > "$HOME/.local/bin/47os-update" <<UPDWRAP
 #!/usr/bin/env bash
-exec bash "$SCRIPT_DIR/update.sh" "\$@"
+# The checkout this was installed from. If you delete or move it, we do not
+# die with "No such file" — we clone a fresh copy and update from that.
+DIR="$SCRIPT_DIR"
+if [ ! -f "\$DIR/update.sh" ]; then
+    DIR="\$(cat "\$HOME/.config/47industries/install-path" 2>/dev/null)"
+fi
+if [ ! -f "\$DIR/update.sh" ]; then
+    DIR="\$HOME/47os-rice"
+    echo ":: Original 47OS checkout is gone — fetching a fresh one into \$DIR"
+    rm -rf "\$DIR"
+    git clone --depth 1 https://github.com/47-Industries/47os-rice.git "\$DIR" || {
+        echo "  x Clone failed. Check your internet."; exit 1; }
+fi
+exec bash "\$DIR/update.sh" "\$@"
 UPDWRAP
     chmod 0755 "$HOME/.local/bin/47os-update"
     mkdir -p "$HOME/.local/share/applications"

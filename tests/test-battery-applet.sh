@@ -21,10 +21,15 @@ seed() {
 }
 run() { node applet-harness.js ../applets/fake-battery@custom/applet.js "$T" 2>&1; }
 check() { if echo "$1" | grep -qF "$2"; then echo "  ok   $3"; else echo "  FAIL $3 — wanted: $2"; echo "$1"; FAILED=1; fi; }
+absent() { if echo "$1" | grep -qF "$2"; then echo "  FAIL $3 — should NOT contain: $2"; echo "$1"; FAILED=1; else echo "  ok   $3"; fi; }
 FAILED=0
 
 seed 67 Charging 12000000 balanced
-OUT=$(run); check "$OUT" '["label","⚡ 67%"]' "charging shows the bolt"
+OUT=$(run); check "$OUT" '["label","67%"]'                   "charging label is a plain percent"
+# Regression guard for 2026-09-05: the icon battery-*-charging-symbolic ALREADY
+# draws a bolt. A second text bolt in the label was a visible duplicate. If
+# anyone re-adds one, this fails.
+absent "$OUT" '⚡'                                       "no duplicate text bolt in the label"
 check "$OUT" 'battery-good-charging-symbolic'                "charging uses the charging icon"
 check "$OUT" 'until full'                                    "charging shows time to full"
 
