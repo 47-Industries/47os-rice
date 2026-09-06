@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# 47OS game launcher wrapper.
+#   47os-game <command> [args...]     run anything on the dGPU, with gamemode + overlay
+#   47os-game --status                show what the gaming layer looks like right now
+#
+# Why this exists: this is a hybrid-graphics laptop in prime "on-demand" mode.
+# Nothing uses the NVIDIA chip unless it is explicitly told to, so a game
+# launched normally renders on the Intel iGPU and looks like the GPU is broken.
+# Every offload variable is set here in ONE place so no one has to remember them.
+set -uo pipefail
+
+have() { command -v "$1" >/dev/null 2>&1; }
+
+gpu_env=(
+    __NV_PRIME_RENDER_OFFLOAD=1
+    __GLX_VENDOR_LIBRARY_NAME=nvidia
+    __VK_LAYER_NV_optimus=NVIDIA_only
+    VK_LOADER_DRIVERS_SELECT=nvidia_icd.json
+)
+
+if [ "${1:-}" = "--status" ]; then
+    echo "prime mode : $(prime-select query 2>/dev/null || echo unknown)"
+    echo "dGPU       : $(nvidia-smi --query-gpu=name,driver_version --format=csv,noheader 2>/dev/null || echo 'not responding')"
+    echo "power mode : $(47os-powermode status 2>/dev/null || echo unknown)"
+    echo "gamemode   : $(gamemoded -s 2>/dev/null || echo 'not installed')"
+    echo -n "vulkan dGPU: "
+    env "${gpu_env[@]}" vulkaninfo --summary 2>/dev/null | grep -m1 deviceName || echo "vulkaninfo unavailable"
+    exit 0
+fi
+
+[ $# -ge 1 ] || { echo "usage: 47os-game <command> [args...]" >&2; exit 2; }
+
+# A game in battery-saver mode is a slideshow — turbo is off and the governor is
+# pinned to powersave. Lift it for the session, put it back when the game exits.
+restore_saver=0
+if [ "$(47os-powermode status 2>/dev/null)" = "saver" ]; then
+    47os-powermode balanced >/dev/null 2>&1 && restore_saver=1
+fi
+cleanup() { [ "$restore_saver" = 1 ] && 47os-powermode saver >/dev/null 2>&1; }
+trap cleanup EXIT INT TERM
+
+cmd=("$@")
+have gamemoderun && cmd=(gamemoderun "${cmd[@]}")
+[ "${NO_OVERLAY:-0}" = 1 ] || { have mangohud && cmd=(mangohud "${cmd[@]}"); }
+
+exec env "${gpu_env[@]}" "${cmd[@]}"

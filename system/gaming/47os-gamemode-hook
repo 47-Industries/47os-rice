@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# Runs as the user, from gamemoded, when a game starts and ends.
+# Purpose: a game must never run while Battery Saver has turbo boost switched
+# off. Saver state is remembered and restored so the laptop goes back to
+# sipping power the moment the game quits.
+set -uo pipefail
+STATE_DIR="$HOME/.config/47industries"
+FLAG="$STATE_DIR/gamemode-restored-saver"
+mkdir -p "$STATE_DIR" 2>/dev/null
+
+case "${1:-}" in
+  start)
+    if [ "$(47os-powermode status 2>/dev/null)" = "saver" ]; then
+        47os-powermode balanced >/dev/null 2>&1 && touch "$FLAG"
+    fi
+    command -v notify-send >/dev/null && notify-send -i applications-games \
+        "Game Mode" "Performance governor on. Battery saver paused." 2>/dev/null
+    ;;
+  end)
+    if [ -e "$FLAG" ]; then
+        rm -f "$FLAG"
+        47os-powermode saver >/dev/null 2>&1
+    fi
+    ;;
+esac
+exit 0

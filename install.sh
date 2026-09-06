@@ -1128,6 +1128,45 @@ UPDDESK
     ok "Updater installed (run: 47os-update, or Menu > 47OS Update)."
 fi
 
+# Gaming: install the command, not the 3GB of games. Steam/Lutris/Proton are
+# opt-in via `47os-gaming` so a plain rice install stays small.
+if [ -f "$SCRIPT_DIR/scripts/47os-gaming" ]; then
+    cat > "$HOME/.local/bin/47os-gaming" <<GAMEWRAP
+#!/usr/bin/env bash
+DIR="$SCRIPT_DIR"
+if [ ! -f "\$DIR/scripts/47os-gaming" ]; then
+    DIR="\$(cat "\$HOME/.config/47industries/install-path" 2>/dev/null)"
+fi
+if [ ! -f "\$DIR/scripts/47os-gaming" ]; then
+    DIR="\$HOME/47os-rice"
+    echo ":: 47OS checkout is gone — fetching a fresh one into \$DIR"
+    rm -rf "\$DIR"
+    git clone --depth 1 https://github.com/47-Industries/47os-rice.git "\$DIR" || {
+        echo "  x Clone failed. Check your internet."; exit 1; }
+fi
+exec bash "\$DIR/scripts/47os-gaming" "\$@"
+GAMEWRAP
+    chmod 0755 "$HOME/.local/bin/47os-gaming"
+    # The launcher wrapper is useful even before the stack is installed —
+    # 47os-game --status tells you which GPU a game would actually land on.
+    sudo install -m 755 "$SCRIPT_DIR/scripts/47os-game" /usr/local/bin/47os-game 2>/dev/null \
+        && ok "47os-game launcher installed" || warn "could not install /usr/local/bin/47os-game"
+    mkdir -p "$HOME/.local/share/applications"
+    cat > "$HOME/.local/share/applications/47os-gaming.desktop" <<GAMEDESK
+[Desktop Entry]
+Type=Application
+Name=47OS Gaming Setup
+Comment=Install Steam, Proton, Lutris, Heroic, GameMode and controller support
+Exec=alacritty -e $HOME/.local/bin/47os-gaming
+Icon=applications-games
+Terminal=false
+Categories=System;Game;
+Keywords=game;gaming;steam;proton;lutris;controller;47os;
+GAMEDESK
+    update-desktop-database "$HOME/.local/share/applications" 2>/dev/null
+    ok "Gaming setup available (run: 47os-gaming, or Menu > 47OS Gaming Setup)."
+fi
+
 # ============================================================
 # Save install manifest for uninstall
 # ============================================================
