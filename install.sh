@@ -872,7 +872,7 @@ sleep 5  # Wait for Cinnamon to fully load
 # here and the old fallback ($HOME/47os-rice) silently missed the INI for
 # anyone who cloned anywhere else — which meant panels-enabled and the applet
 # layout never got applied at all. 2026-09-05.
-INSTALL_DIR="$SCRIPT_DIR"
+INSTALL_DIR="__47OS_SCRIPT_DIR__"
 [ -f "$INSTALL_DIR/config/dconf/user-settings.ini" ] || INSTALL_DIR=$(cat "$HOME/.config/47industries/install-path" 2>/dev/null)
 [ -n "$INSTALL_DIR" ] && [ -f "$INSTALL_DIR/config/dconf/user-settings.ini" ] || INSTALL_DIR="$HOME/47os-rice"
 
@@ -913,6 +913,11 @@ DISPLAY=:0 dbus-send --session --dest=org.Cinnamon --type=method_call \
 # Self-destruct
 rm -f "$HOME/.config/autostart/47os-first-login.desktop"
 APPLYSCRIPT
+
+# The heredoc above is quoted, so $SCRIPT_DIR could not expand inside it and
+# would have been UNSET at login. Bake the real checkout path in now.
+sed -i "s|__47OS_SCRIPT_DIR__|$SCRIPT_DIR|" "$HOME/.config/47industries/apply-rice.sh"
+chmod +x "$HOME/.config/47industries/apply-rice.sh"
 
 chmod +x "$HOME/.config/47industries/apply-rice.sh"
 
