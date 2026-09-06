@@ -10,7 +10,16 @@ set -uo pipefail
 GUI=0
 command -v zenity >/dev/null 2>&1 && [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ] && GUI=1
 
-CFG=/etc/howdy/config.ini
+
+# Howdy's actual config location varies by packaging: the PPA package (what
+# 47OS ships) keeps config.ini next to its own code, not under /etc/howdy —
+# that path only exists for some builds. Resolve it for real instead of
+# assuming, so this script doesn't die on "config not found" on a real install.
+CFG=""
+for _c in /etc/howdy/config.ini /usr/lib/security/howdy/config.ini /lib/security/howdy/config.ini; do
+    [ -f "$_c" ] && { CFG="$_c"; break; }
+done
+[ -z "$CFG" ] && CFG=/etc/howdy/config.ini   # fall through to the old default so error messages still name a path
 BACKUP_DIR="$HOME/.config/47industries/face-unlock-backups"
 mkdir -p "$BACKUP_DIR"
 
