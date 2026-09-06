@@ -8,7 +8,6 @@ const Util = imports.misc.util;
 
 const BATTERY_PATH = "/sys/class/power_supply";
 const UPDATE_INTERVAL = 15;   // seconds
-const PULSE_INTERVAL = 900;   // ms, charging pulse
 
 class BatteryApplet extends Applet.TextIconApplet {
     constructor(orientation, panelHeight, instanceId) {
@@ -19,7 +18,7 @@ class BatteryApplet extends Applet.TextIconApplet {
         this.menuManager.addMenu(this.menu);
 
         this._battery = this._findBattery();
-        this._pulseOn = false;
+        this._charged = false;
         this._pulseId = 0;
         this._timerId = 0;
         this._saver = this._readMode() === "saver";
@@ -133,21 +132,25 @@ class BatteryApplet extends Applet.TextIconApplet {
 
     // ------------------------------------------------------------- painting --
 
+    // Charging = solid green. No breathing, no animation.
+    //
+    // Dean called the pulse ugly (2026-09-05) and he was right twice over.
+    // Aesthetically: a panel element that moves in the corner of your eye is a
+    // distraction, not information. Technically: it was a Mainloop timer firing
+    // every 900ms forever, waking the CPU ~4000 times an hour to repaint a
+    // colour that is now constant — on the exact laptop we are trying to squeeze
+    // five hours out of. The state is static, so the paint is a one-shot.
     _startPulse() {
-        if (this._pulseId) return;
-        this._pulseId = Mainloop.timeout_add(PULSE_INTERVAL, () => {
-            this._pulseOn = !this._pulseOn;
-            // Green, breathing. Bright on the beat, dimmer off it.
-            let color = this._pulseOn ? "#4ade80" : "#22803f";
-            try {
-                this._applet_icon.set_style("color: " + color + ";");
-                this._applet_label.set_style("color: " + color + "; font-weight: bold;");
-            } catch (e) {}
-            return true;
-        });
+        if (this._charged) return;
+        this._charged = true;
+        try {
+            this._applet_icon.set_style("color: #4ade80;");
+            this._applet_label.set_style("color: #4ade80; font-weight: bold;");
+        } catch (e) {}
     }
 
     _stopPulse() {
+        this._charged = false;
         if (this._pulseId) { Mainloop.source_remove(this._pulseId); this._pulseId = 0; }
         try {
             this._applet_icon.set_style("");
@@ -180,8 +183,10 @@ class BatteryApplet extends Applet.TextIconApplet {
         // The label carries the state at a glance: bolt while charging,
         // leaf while in battery saver.
         let label = "";
-        if (info.isCharging)      label = "⚡ " + info.percent + "%";
-        else if (info.isFull)     label = "⚡ " + info.percent + "%";
+        // No text bolt: getIconName() already returns battery-<level>-charging-symbolic,
+        // which draws the bolt INSIDE the icon. A second standalone bolt was redundant.
+        if (info.isCharging)      label = info.percent + "%";
+        else if (info.isFull)     label = info.percent + "%";
         else                      label = info.percent + "%";
         if (this._saver && !info.isCharging) label = "ECO " + info.percent + "%";
         this.set_applet_label(label);
