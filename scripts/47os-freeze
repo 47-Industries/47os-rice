@@ -1,0 +1,197 @@
+#!/usr/bin/env bash
+# 47OS freeze tools.
+#
+#   47os-freeze report        what the machine was doing when it last died
+#   47os-freeze status        is the guard on, is the recorder running
+#   47os-freeze guard on      conservative PCIe/runtime power (no reboot)
+#   47os-freeze guard deep    also disable ASPM + panel self-refresh (reboot)
+#   47os-freeze guard off     back to stock
+#
+# The report is the point. A hard lockup leaves no logs, so 47os-blackbox
+# writes state to disk every 2s and fsyncs it. If the record ends without a
+# CLEAN_STOP marker, the machine did not shut down — it died, and the last
+# line is the state one heartbeat before death.
+set -uo pipefail
+
+CYAN='\033[38;2;0;255;255m'; GREEN='\033[38;2;0;255;150m'
+YELLOW='\033[38;2;255;200;0m'; RED='\033[38;2;255;80;80m'; WHITE='\033[1;37m'; RESET='\033[0m'
+say()  { echo -e "${CYAN}::${RESET} $1"; }
+ok()   { echo -e "  ${GREEN}✓${RESET} $1"; }
+warn() { echo -e "  ${YELLOW}!${RESET} $1"; }
+bad()  { echo -e "  ${RED}✗${RESET} $1"; }
+
+LOG=/var/log/47os/blackbox.log
+GUARD_TLP=/etc/tlp.d/48-47os-freeze-guard.conf
+GUARD_GRUB=/etc/default/grub.d/47os-freeze-guard.cfg
+
+need_root() { [ "$(id -u)" -eq 0 ] || exec sudo -- "$0" "$@"; }
+
+# ---------------------------------------------------------------- report
+do_report() {
+    echo ""; echo -e "${WHITE}  47OS freeze report${RESET}"; echo ""
+
+    if [ ! -r "$LOG" ]; then
+        bad "No black box record at $LOG"
+        echo "     The recorder isn't installed or has never run."
+        echo "     Start it with:  sudo systemctl enable --now 47os-blackbox"
+        return 1
+    fi
+
+    # Each boot starts with a banner line; a boot that ends without a
+    # CLEAN_STOP marker is a boot the machine did not survive. Python does
+    # the walk because getting this wrong is worse than not having it.
+    python3 - "$LOG" <<'PY'
+import sys, datetime
+path = sys.argv[1]
+segs, cur = [], None
+for line in open(path, errors="replace"):
+    line = line.rstrip("\n")
+    if line.startswith("### 47OS black box start"):
+        cur = {"start": line, "lines": [], "clean": False}
+        segs.append(cur)
+    elif line.startswith("### CLEAN_STOP"):
+        if cur: cur["clean"] = True
+    elif cur is not None and line.strip():
+        cur["lines"].append(line)
+
+if not segs:
+    print("  no sessions recorded yet"); sys.exit(0)
+
+# The live session is the last one; it is legitimately open.
+crashes = [s for s in segs[:-1] if not s["clean"] and s["lines"]]
+live = segs[-1]
+
+if not crashes:
+    print("  \033[38;2;0;255;150m✓\033[0m No unexplained deaths in the record.")
+    print("    Every past session ended with a clean shutdown.")
+else:
+    s = crashes[-1]
+    print("  \033[38;2;255;80;80m✗\033[0m The machine died without shutting down. Last %d heartbeats:" % min(10, len(s["lines"])))
+    print()
+    for l in s["lines"][-10:]:
+        print("     " + l)
+    print()
+    last = s["lines"][-1]
+    f = dict(p.split("=", 1) for p in last.split() if "=" in p)
+    ts = last.split()[0]
+    print("  State at the last heartbeat before it froze:")
+    print("     time         %s" % ts)
+    print("     on battery   %s" % ("yes" if f.get("ac") == "0" else "no" if f.get("ac") == "1" else "unknown"))
+    print("     battery      %s%%" % f.get("bat", "?"))
+    print("     cpu temp     %s C" % f.get("tempC", "?"))
+    print("     cpu          %s MHz, governor %s" % (f.get("mhz", "?"), f.get("gov", "?")))
+    print("     dGPU         %s" % f.get("gpu", "-"))
+    print("     PCIe ASPM    %s" % f.get("aspm", "?"))
+    print("     load         %s" % f.get("load", "?"))
+    print()
+    if f.get("gpu") == "suspended":
+        print("  \033[38;2;255;200;0m!\033[0m The discrete GPU was runtime-suspended at the moment it died.")
+        print("    That is the prime suspect: waking a D3-cold dGPU is where these hang.")
+    if f.get("ac") == "0" and f.get("aspm", "") in ("powersupersave", "powersave"):
+        print("  \033[38;2;255;200;0m!\033[0m It was on battery with aggressive PCIe link power saving on.")
+        print("    Run:  47os-freeze guard on")
+    print("  Total unexplained deaths in the record: %d" % len(crashes))
+
+if live["lines"]:
+    print()
+    print("  Current session: %d heartbeats, last at %s" % (len(live["lines"]), live["lines"][-1].split()[0]))
+PY
+
+    echo ""
+    if journalctl -b -1 -k -n 25 --no-pager >/dev/null 2>&1; then
+        say "Last 12 kernel lines from the previous boot:"
+        journalctl -b -1 -k -n 12 --no-pager 2>/dev/null | sed 's/^/     /'
+    else
+        warn "No previous-boot kernel log (persistent journal off, or first boot)."
+    fi
+    echo ""
+}
+
+# ---------------------------------------------------------------- guard
+guard_on() {
+    need_root guard on
+    mkdir -p /etc/tlp.d
+    cat > "$GUARD_TLP" <<'CONF'
+# 47OS freeze guard. Written by `47os-freeze guard on`.
+# Backs off the two power knobs that hang hybrid-graphics laptops:
+#   PCIE_ASPM  - aggressive link power states, and the L1 substate exit is
+#                where marginal PCIe links lock the bus solid.
+#   RUNTIME_PM - parks the discrete GPU in D3cold; the resume path is the
+#                single most common hard-lockup on these machines.
+# Costs a few minutes of battery. Buys a laptop that stays up.
+PCIE_ASPM_ON_BAT=default
+PCIE_ASPM_ON_AC=default
+RUNTIME_PM_ON_BAT=on
+RUNTIME_PM_ON_AC=on
+USB_AUTOSUSPEND=0
+CONF
+    systemctl restart tlp.service 2>/dev/null
+    ok "Freeze guard ON (took effect immediately, no reboot)."
+    echo "     PCIe link power saving: back to firmware default"
+    echo "     dGPU runtime suspend:   off"
+    echo "     If it still freezes, run: sudo 47os-freeze guard deep"
+}
+
+guard_deep() {
+    need_root guard deep
+    guard_on
+    if [ ! -d /etc/default/grub.d ]; then
+        warn "This system has no /etc/default/grub.d — skipping kernel options."
+        warn "Not hand-editing /etc/default/grub; that file is not mine to rewrite."
+        return 0
+    fi
+    cat > "$GUARD_GRUB" <<'CONF'
+# 47OS freeze guard (deep). Written by `47os-freeze guard deep`.
+# Removed by `47os-freeze guard off`, which also re-runs update-grub.
+#   pcie_aspm=off      kernel stops negotiating link power states at all
+#   i915.enable_psr=0  panel self refresh off; PSR corruption is the classic
+#                      cause of a frozen screen with a torn line across it
+GRUB_CMDLINE_LINUX_DEFAULT="$GRUB_CMDLINE_LINUX_DEFAULT pcie_aspm=off i915.enable_psr=0"
+CONF
+    if update-grub >/dev/null 2>&1 || grub-mkconfig -o /boot/grub/grub.cfg >/dev/null 2>&1; then
+        ok "Kernel options staged. They apply on the NEXT reboot."
+    else
+        rm -f "$GUARD_GRUB"
+        bad "update-grub failed — backed the change out, boot config untouched."
+        return 1
+    fi
+}
+
+guard_off() {
+    need_root guard off
+    rm -f "$GUARD_TLP" && systemctl restart tlp.service 2>/dev/null
+    if [ -f "$GUARD_GRUB" ]; then
+        rm -f "$GUARD_GRUB"
+        update-grub >/dev/null 2>&1 || grub-mkconfig -o /boot/grub/grub.cfg >/dev/null 2>&1
+        ok "Kernel options removed (applies next reboot)."
+    fi
+    ok "Freeze guard OFF — back to stock power management."
+}
+
+do_status() {
+    echo ""; echo -e "${WHITE}  47OS freeze guard${RESET}"; echo ""
+    if [ -f "$GUARD_TLP" ]; then ok "Guard: ON"; else warn "Guard: off"; fi
+    [ -f "$GUARD_GRUB" ] && ok "Deep guard staged in boot options"
+    if systemctl is-active --quiet 47os-blackbox 2>/dev/null; then
+        ok "Black box: recording ($(wc -l < "$LOG" 2>/dev/null || echo 0) heartbeats on disk)"
+    else
+        bad "Black box: NOT running — the next freeze will leave no evidence."
+        echo "     sudo systemctl enable --now 47os-blackbox"
+    fi
+    local pol; pol=$(cat /sys/module/pcie_aspm/parameters/policy 2>/dev/null || echo '?')
+    echo "     PCIe ASPM policy now: $pol"
+    echo ""
+}
+
+case "${1:-report}" in
+    report)  do_report ;;
+    status)  do_status ;;
+    guard)
+        case "${2:-}" in
+            on)   guard_on ;;
+            deep) guard_deep ;;
+            off)  guard_off ;;
+            *)    echo "usage: 47os-freeze guard on|deep|off" ; exit 2 ;;
+        esac ;;
+    *) echo "usage: 47os-freeze [report|status|guard on|guard deep|guard off]"; exit 2 ;;
+esac

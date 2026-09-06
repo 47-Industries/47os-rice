@@ -1,0 +1,123 @@
+#!/usr/bin/env bash
+# 47OS black box — flight recorder for hard freezes.
+#
+# Why this exists: a hard lockup writes nothing. The kernel never gets to
+# flush a log, journald never gets to fsync, and after you hold the power
+# button all you have is "it froze again." Every freeze so far has cost us
+# the one thing we needed: what the machine was doing the instant it died.
+#
+# So we write the state to disk CONTINUOUSLY and fsync every line. When the
+# box locks up, the last durable line is the state at the moment of death,
+# and the missing CLEAN_STOP marker proves it was a lockup and not a reboot.
+#
+# Deliberately cheap and deliberately non-invasive:
+#   - every value is a sysfs read, no nvidia-smi. nvidia-smi wakes the dGPU,
+#     which would defeat runtime D3 and MASK the exact bug we are hunting.
+#   - only PM-core attributes are read on the GPU (runtime_status, power_state).
+#     Those are answered by the kernel and never touch the device.
+set -uo pipefail
+
+LOG_DIR=/var/log/47os
+LOG="$LOG_DIR/blackbox.log"
+INTERVAL="${BLACKBOX_INTERVAL:-2}"
+MAX_BYTES="${BLACKBOX_MAX_BYTES:-20971520}"   # 20 MB, then rotate once
+
+mkdir -p "$LOG_DIR" 2>/dev/null || exit 1
+chmod 750 "$LOG_DIR" 2>/dev/null
+
+# --- discover hardware ONCE, not in the hot loop -------------------------
+AC_PATH=""
+for p in /sys/class/power_supply/A{C,DP}*/online /sys/class/power_supply/*/online; do
+    [ -r "$p" ] && { AC_PATH="$p"; break; }
+done
+BAT_CAP=""
+for p in /sys/class/power_supply/BAT*/capacity; do [ -r "$p" ] && { BAT_CAP="$p"; break; }; done
+
+# dGPU: the PCI device bound to the nvidia driver, if any.
+DGPU=""
+for d in /sys/bus/pci/drivers/nvidia/0000:*; do
+    [ -d "$d" ] && { DGPU="$(readlink -f "$d")"; break; }
+done
+
+TZONE=""
+for z in /sys/class/thermal/thermal_zone*; do
+    [ -r "$z/type" ] || continue
+    case "$(cat "$z/type" 2>/dev/null)" in
+        x86_pkg_temp|acpitz|coretemp) TZONE="$z/temp"; break ;;
+    esac
+done
+[ -n "$TZONE" ] || TZONE="$(ls /sys/class/thermal/thermal_zone*/temp 2>/dev/null | head -1)"
+
+GOV=/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+CUR=/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq
+ASPM=/sys/module/pcie_aspm/parameters/policy
+
+rd() { [ -r "$1" ] && tr -d '\n' < "$1" 2>/dev/null || printf '?'; }
+# Numeric read. Anything non-numeric becomes 0 so arithmetic can never abort
+# the heartbeat. A machine with no cpufreq sysfs used to kill the whole
+# printf here and write ZERO heartbeats — the recorder failing silently is
+# the one bug it must never have. Caught by tests/test-blackbox.sh.
+rdnum() { local v; v="$(rd "$1")"; case "$v" in ''|*[!0-9]*) echo 0 ;; *) echo "$v" ;; esac; }
+
+banner() {
+    {
+        echo "### 47OS black box start $(date -Is) kernel=$(uname -r) boot_id=$(rd /proc/sys/kernel/random/boot_id)"
+        echo "### dgpu=${DGPU:-none} ac=${AC_PATH:-none} bat=${BAT_CAP:-none} tzone=${TZONE:-none} interval=${INTERVAL}s"
+    } >> "$LOG"
+}
+
+# ExecStop fires this. Its presence is the ONLY thing that distinguishes a
+# clean shutdown from a lockup, so it is the whole point of the recorder.
+if [ "${1:-}" = "--stop" ]; then
+    echo "### CLEAN_STOP $(date -Is) uptime=$(cut -d' ' -f1 /proc/uptime)" >> "$LOG"
+    sync "$LOG" 2>/dev/null || true
+    exit 0
+fi
+
+rotate_if_big() {
+    local sz
+    sz=$(stat -c %s "$LOG" 2>/dev/null || echo 0)
+    if [ "$sz" -gt "$MAX_BYTES" ]; then
+        mv -f "$LOG" "$LOG.1" 2>/dev/null
+        : > "$LOG"; chmod 640 "$LOG" 2>/dev/null
+        banner
+    fi
+}
+
+: > /dev/null
+touch "$LOG" 2>/dev/null; chmod 640 "$LOG" 2>/dev/null
+banner
+
+i=0
+while :; do
+    ac="?"; [ -n "$AC_PATH" ] && ac="$(rd "$AC_PATH")"
+    bat="?"; [ -n "$BAT_CAP" ] && bat="$(rd "$BAT_CAP")"
+    gpu_rt="-"; gpu_ps="-"
+    if [ -n "$DGPU" ]; then
+        gpu_rt="$(rd "$DGPU/power/runtime_status")"
+        gpu_ps="$(rd "$DGPU/power/runtime_suspended_time")"
+    fi
+    t=$(( $(rdnum "$TZONE") / 1000 ))
+    aspm="$(rd $ASPM)"; aspm="${aspm#*[}"; aspm="${aspm%%]*}"
+
+    printf '%s up=%s ac=%s bat=%s gov=%s mhz=%s tempC=%s gpu=%s gpu_susp_ms=%s aspm=%s load=%s\n' \
+        "$(date -Is)" \
+        "$(cut -d' ' -f1 /proc/uptime)" \
+        "$ac" "$bat" \
+        "$(rd $GOV)" \
+        "$(( $(rdnum $CUR) / 1000 ))" \
+        "$t" "$gpu_rt" "$gpu_ps" "${aspm:-?}" \
+        "$(cut -d' ' -f1 /proc/loadavg)" >> "$LOG"
+
+    # fsync THIS FILE ONLY. Without a sync the last ~30s of the record dies in
+    # page cache along with the machine, which is exactly the window we care
+    # about. But `sync -f` would flush the WHOLE filesystem every 2 seconds --
+    # on a box mid-way through a 112 GB Steam download that is a self-inflicted
+    # I/O stall, and the recorder would be causing the stutters it is hunting.
+    # `sync FILE` (coreutils >= 8.24) fsyncs just this fd.
+    sync "$LOG" 2>/dev/null || true
+
+    i=$((i+1))
+    [ $((i % 300)) -eq 0 ] && rotate_if_big
+    sleep "$INTERVAL"
+done

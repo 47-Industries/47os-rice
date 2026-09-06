@@ -104,6 +104,25 @@ echo -e "  ${GREEN}Done.${RESET}"
 # ============================================================
 # 3b. Remove 47OS power-management unit
 # ============================================================
+echo -e "\n${CYAN}[*]${WHITE} Removing black box recorder...${RESET}"
+if [ -f /etc/systemd/system/47os-blackbox.service ]; then
+    sudo systemctl disable --now 47os-blackbox.service 2>/dev/null
+    sudo rm -f /etc/systemd/system/47os-blackbox.service
+    sudo systemctl daemon-reload 2>/dev/null
+fi
+sudo rm -f /usr/local/bin/47os-blackbox /usr/local/bin/47os-freeze
+rm -f "$HOME/.local/bin/47os-freeze"
+# The freeze guard is ours, so it goes with us — including the boot options,
+# which must be un-staged with update-grub or they outlive the uninstall.
+sudo rm -f /etc/tlp.d/48-47os-freeze-guard.conf /etc/sysctl.d/47os-sysrq.conf
+if [ -f /etc/default/grub.d/47os-freeze-guard.cfg ]; then
+    sudo rm -f /etc/default/grub.d/47os-freeze-guard.cfg
+    sudo update-grub >/dev/null 2>&1
+fi
+# Deliberately NOT deleting /var/log/47os — that record is the only evidence
+# of past freezes and it is the user's, not ours. Say where it is instead.
+[ -d /var/log/47os ] && echo -e "  ${YELLOW}Kept /var/log/47os (your freeze history). Delete it yourself if you want it gone.${RESET}"
+
 echo -e "\n${CYAN}[*]${WHITE} Removing powertop auto-tune service...${RESET}"
 if [ -f /etc/systemd/system/47os-powertop-autotune.service ]; then
     sudo systemctl disable --now 47os-powertop-autotune.service 2>/dev/null

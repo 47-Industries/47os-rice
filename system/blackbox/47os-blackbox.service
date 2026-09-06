@@ -1,0 +1,24 @@
+[Unit]
+Description=47OS black box — flight recorder for hard freezes
+Documentation=man:47os-freeze(1)
+DefaultDependencies=no
+After=local-fs.target
+Before=shutdown.target
+Conflicts=shutdown.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/47os-blackbox
+# The ONLY thing that distinguishes a clean shutdown from a lockup. If this
+# marker is missing from the record, the machine died on its feet.
+ExecStop=/usr/local/bin/47os-blackbox --stop
+Restart=always
+RestartSec=2
+Nice=19
+IOSchedulingClass=idle
+# Never let the recorder be the reason the machine is unhappy.
+MemoryMax=32M
+TimeoutStopSec=5
+
+[Install]
+WantedBy=multi-user.target

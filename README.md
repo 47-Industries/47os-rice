@@ -59,3 +59,30 @@ Proprietary -- 47 Industries LLC. All rights reserved.
 
 **47 Industries LLC**
 [47industries.com](https://47industries.com) | hello@47industries.com
+
+## When it freezes
+
+A hard lockup writes nothing to disk. That is why "it froze again" has never
+come with any evidence — the kernel never gets to flush a log and journald
+never gets to fsync, so after you hold the power button there is nothing to
+read. 47OS records the state continuously instead.
+
+    47os-freeze report      what the machine was doing when it last died
+    47os-freeze status      is the recorder running, is the guard on
+
+The recorder (`47os-blackbox`, a systemd service) writes one line every two
+seconds and fsyncs it: power source, battery, CPU governor and clock, package
+temperature, discrete-GPU runtime state, PCIe ASPM policy, load. On a clean
+shutdown it writes a CLEAN_STOP marker. **A session that ends without that
+marker is a session the machine did not survive**, and the last line is the
+state one heartbeat before it went down.
+
+If the report points at power management:
+
+    sudo 47os-freeze guard on     conservative PCIe/runtime power, no reboot
+    sudo 47os-freeze guard deep   also disables ASPM and panel self-refresh
+    sudo 47os-freeze guard off    back to stock
+
+And when it locks up, you do not have to hold the power button. SysRq is
+enabled: hold **Alt+SysRq** and press **R E I S U B**, one letter a second.
+That syncs your disks and reboots cleanly even with the desktop dead.

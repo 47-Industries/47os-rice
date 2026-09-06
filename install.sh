@@ -240,9 +240,18 @@ CPU_SCALING_GOVERNOR_ON_BAT=powersave
 CPU_BOOST_ON_BAT=0
 PLATFORM_PROFILE_ON_BAT=low-power
 SATA_LINKPWR_ON_BAT=med_power_with_dipm
-PCIE_ASPM_ON_BAT=powersupersave
+# PCIe link power saving stays at the firmware default, NOT powersupersave.
+# powersupersave drives every PCIe link into its deepest L1 substates, and on
+# a hybrid-graphics laptop the L1 exit path is where a marginal link locks the
+# whole bus — the machine freezes solid with the screen still lit. It buys
+# well under a watt; the CPU and platform knobs above are where the hours
+# actually came from. Not worth a laptop that stops responding.
+PCIE_ASPM_ON_BAT=default
 WIFI_PWR_ON_BAT=on
-RUNTIME_PM_ON_BAT=auto
+# Same reasoning: 'auto' parks the discrete GPU in D3cold and the resume path
+# is the single most common hard lockup on these machines. `47os-freeze guard`
+# can flip these back if we ever prove otherwise.
+RUNTIME_PM_ON_BAT=on
 DISK_APM_LEVEL_ON_BAT="128 128"
 
 # On AC, don't handicap the machine.
@@ -1072,6 +1081,44 @@ fi
 
 if [ -f "$SCRIPT_DIR/scripts/47os-powermode" ]; then
     install -m 0755 "$SCRIPT_DIR/scripts/47os-powermode" "$HOME/.local/bin/47os-powermode"
+fi
+
+# ------------------------------------------------------------------
+# Black box + freeze report.
+# A hard lockup writes nothing to disk, so every freeze so far has cost us the
+# one thing we needed: what the machine was doing when it died. The recorder
+# fsyncs a state line every 2s; `47os-freeze report` reads it back after the
+# reboot and says whether the machine shut down or was killed on its feet.
+# ------------------------------------------------------------------
+if [ -f "$SCRIPT_DIR/scripts/47os-blackbox" ]; then
+    sudo install -m 0755 "$SCRIPT_DIR/scripts/47os-blackbox" /usr/local/bin/47os-blackbox 2>/dev/null
+    sudo install -m 0755 "$SCRIPT_DIR/scripts/47os-freeze"   /usr/local/bin/47os-freeze   2>/dev/null
+    install -m 0755 "$SCRIPT_DIR/scripts/47os-freeze" "$HOME/.local/bin/47os-freeze" 2>/dev/null
+
+    if [ -f "$SCRIPT_DIR/system/blackbox/47os-blackbox.service" ]; then
+        sudo install -m 0644 "$SCRIPT_DIR/system/blackbox/47os-blackbox.service" \
+            /etc/systemd/system/47os-blackbox.service 2>/dev/null
+        sudo systemctl daemon-reload 2>/dev/null
+        sudo systemctl enable --now 47os-blackbox.service 2>/dev/null \
+            && ok "Black box recording (47os-freeze report after any freeze)." \
+            || warn "Black box service did not start."
+    fi
+
+    # A hard lockup can still leave a kernel message behind IF the journal is
+    # persistent. On a volatile journal `journalctl -b -1` has nothing at all,
+    # which is how you end up with a freeze and zero evidence.
+    if [ ! -d /var/log/journal ]; then
+        sudo mkdir -p /var/log/journal 2>/dev/null
+        sudo systemd-tmpfiles --create --prefix /var/log/journal 2>/dev/null
+        sudo systemctl kill --kill-who=main --signal=SIGUSR1 systemd-journald 2>/dev/null
+        ok "Persistent kernel journal enabled (survives a freeze)."
+    fi
+
+    # SysRq: gives you a survivable escape from a lockup instead of holding
+    # the power button. Alt+SysRq then R E I S U B, one letter a second, syncs
+    # the disks and reboots cleanly even when the desktop is gone.
+    echo 'kernel.sysrq = 1' | sudo tee /etc/sysctl.d/47os-sysrq.conf >/dev/null 2>&1
+    sudo sysctl --quiet -w kernel.sysrq=1 2>/dev/null
 fi
 
 # Repair: one command to put the desktop layout back without a reinstall.
